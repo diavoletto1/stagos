@@ -5,14 +5,18 @@ stagos_30_services() {
   run sudo systemctl enable gpsd.socket
   run sudo usermod -aG kismet,wireshark "$STAGOS_USER"
 
-  local iface
-  if iface="$(wifi_monitor_iface)"; then
-    log "monitor-capable iface: $iface -> NetworkManager will leave it alone"
+  # Only hand a card to capture duty when it's explicitly named AND it isn't the only wifi card.
+  # (Auto-detect grabbed the built-in Intel card on first run and killed normal wifi.)
+  local ncards
+  ncards=$(find /sys/class/net -maxdepth 2 -name wireless 2>/dev/null | wc -l)
+  if [[ -n "${STAGOS_CAPTURE_IFACE:-}" && ( "$ncards" -ge 2 || -n "${STAGOS_MOCK_WIFI:-}" ) ]]; then
+    log "capture iface: $STAGOS_CAPTURE_IFACE -> NetworkManager will leave it alone"
     run sudo mkdir -p /etc/NetworkManager/conf.d
-    printf '[keyfile]\nunmanaged-devices=interface-name:%s\n' "$iface" \
+    printf '[keyfile]\nunmanaged-devices=interface-name:%s\n' "$STAGOS_CAPTURE_IFACE" \
       | run sudo tee /etc/NetworkManager/conf.d/10-stagos-capture.conf >/dev/null
   else
-    warn "no monitor-capable card detected; capture-iface rule deferred until the card is in"
+    run sudo rm -f /etc/NetworkManager/conf.d/10-stagos-capture.conf
+    warn "no dedicated capture card configured; all wifi stays with NetworkManager"
   fi
   ok "services configured"
 }

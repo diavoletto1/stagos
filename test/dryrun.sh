@@ -15,4 +15,4 @@ echo; echo "== provision.sh (dry, no card) =="
 DRY_RUN=1 ./provision.sh
 
 echo; echo "== provision.sh (dry, mock card wlan1) =="
-DRY_RUN=1 STAGOS_MOCK_WIFI=wlan1 ./provision.sh
+DRY_RUN=1 STAGOS_MOCK_WIFI=wlan1 STAGOS_CAPTURE_IFACE=wlan1 ./provision.sh
