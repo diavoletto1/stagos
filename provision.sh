@@ -8,7 +8,7 @@ source "$HERE/lib/common.sh"
 # shellcheck source=config/stagos.conf
 source "$HERE/config/stagos.conf"
 
-STEPS=(00-repos 20-toolkit 30-services 40-branding 50-user-env 99-verify)
+STEPS=(00-repos 20-toolkit 30-services 40-branding 50-user-env 60-desktop 99-verify)
 for step in "${STEPS[@]}"; do
   log "provision step: $step"
   # shellcheck disable=SC1090

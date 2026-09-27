@@ -1,0 +1,49 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 26,
+  "spacing": 4,
+  "modules-left": ["sway/workspaces", "sway/mode"],
+  "modules-center": ["sway/window"],
+  "modules-right": [
+    "custom/tailscale", "custom/gps", "custom/capture",
+    "network", "cpu", "memory", "pulseaudio", "battery", "clock"
+  ],
+  "sway/workspaces": { "disable-scroll": true, "format": "{name}" },
+  "sway/window": { "max-length": 60, "tooltip": false },
+  "custom/tailscale": {
+    "exec": "$HOME/.config/waybar/scripts/tailscale.sh",
+    "interval": 10, "return-type": "json"
+  },
+  "custom/gps": {
+    "exec": "$HOME/.config/waybar/scripts/gps.sh",
+    "interval": 5, "return-type": "json"
+  },
+  "custom/capture": {
+    "exec": "$HOME/.config/waybar/scripts/capture.sh",
+    "interval": 5, "return-type": "json"
+  },
+  "network": {
+    "format-wifi": "WIFI {essid} {signalStrength}%",
+    "format-ethernet": "ETH {ipaddr}",
+    "format-disconnected": "WIFI down",
+    "tooltip-format": "{ifname} {ipaddr}",
+    "on-click": "foot -e nmtui"
+  },
+  "cpu": { "format": "CPU {usage}%", "interval": 3 },
+  "memory": { "format": "MEM {percentage}%", "interval": 5 },
+  "pulseaudio": {
+    "format": "VOL {volume}%",
+    "format-muted": "MUTE",
+    "on-click": "pavucontrol"
+  },
+  "battery": {
+    "states": { "warning": 30, "critical": 15 },
+    "format": "BAT {capacity}%",
+    "format-charging": "CHG {capacity}%"
+  },
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "tooltip-format": "<tt>{calendar}</tt>"
+  }
+}

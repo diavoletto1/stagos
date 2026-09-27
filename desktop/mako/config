@@ -1,0 +1,15 @@
+# StagOS - mako notifications
+font=Inter 10
+background-color=#1a1a1a
+text-color=#f0f0f0
+border-color=#2a2a2a
+border-size=1
+border-radius=0
+padding=10
+margin=8
+default-timeout=6000
+width=340
+
+[urgency=critical]
+border-color=#c8102e
+default-timeout=0

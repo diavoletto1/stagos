@@ -1,0 +1,16 @@
+# StagOS - swaylock
+color=0a0a0a
+inside-color=1a1a1a
+ring-color=2a2a2a
+ring-ver-color=a8a8a8
+ring-wrong-color=c8102e
+key-hl-color=c8102e
+line-color=00000000
+inside-ver-color=1a1a1a
+inside-wrong-color=1a1a1a
+text-color=f0f0f0
+text-ver-color=f0f0f0
+text-wrong-color=c8102e
+indicator-radius=90
+indicator-thickness=6
+font=JetBrains Mono

@@ -1,0 +1,39 @@
+/* StagOS waybar - stag-control HUD tokens */
+* {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  min-height: 0;
+}
+window#waybar {
+  background: #0a0a0a;
+  border-bottom: 1px solid #2a2a2a;
+  color: #d4d4d4;
+}
+#workspaces button {
+  padding: 0 8px;
+  background: transparent;
+  color: #888;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+#workspaces button.focused {
+  color: #f0f0f0;
+  border-bottom: 2px solid #c8102e;
+}
+#workspaces button.urgent { color: #c8102e; }
+#window { color: #888; }
+
+#custom-tailscale, #custom-gps, #custom-capture,
+#network, #cpu, #memory, #pulseaudio, #battery, #clock {
+  padding: 0 8px;
+  color: #d4d4d4;
+}
+#clock { color: #f0f0f0; font-weight: 500; }
+#battery.warning { color: #c8102e; }
+#battery.critical { color: #c8102e; }
+#battery.charging { color: #a8a8a8; }
+#network.disconnected { color: #c8102e; }
+/* custom module states set class "ok" / "off" via json alt */
+.ok  { color: #a8a8a8; }
+.off { color: #555; }
+.hot { color: #c8102e; }
