@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Services: gpsd, kismet group, and keep NetworkManager off the capture card.
-# The capture-card rule is gated on wifi_monitor_iface (mockable via STAGOS_MOCK_WIFI).
+# Capture card must be named in config (STAGOS_CAPTURE_IFACE) and be a second card; never auto-detected.
 stagos_30_services() {
   run sudo systemctl enable gpsd.socket
   run sudo usermod -aG kismet,wireshark "$STAGOS_USER"
