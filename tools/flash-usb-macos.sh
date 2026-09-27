@@ -64,7 +64,6 @@ cat <<EOF
 4. Pull the installer from this Mac ($IP):
      scp $(whoami)@$IP:Downloads/stagos.tar.gz . && tar xzf stagos.tar.gz && cd stagos
    (scp refused? Mac: System Settings > General > Sharing > Remote Login ON)
-5. lsblk   -> find the SSD (likely /dev/sda), then:
-     vim config/stagos.conf    # set STAGOS_DISK
+5. Run the installer (it lists disks and asks which one):
      ./install.sh
 EOF
