@@ -1,0 +1,10 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = filesystem
+
+[Action]
+Description = Re-applying StagOS release identity...
+When = PostTransaction
+Exec = /usr/bin/ln -sf /etc/stagos-release /etc/os-release
