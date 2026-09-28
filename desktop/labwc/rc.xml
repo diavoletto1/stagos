@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<!-- StagOS labwc config: floating windows with real title bars, edge snapping. -->
+<labwc_config>
+  <theme>
+    <name></name>
+    <cornerRadius>0</cornerRadius>
+    <font place="ActiveWindow"><name>Inter</name><size>10</size><slant>normal</slant><weight>bold</weight></font>
+  </theme>
+
+  <focus>
+    <followMouse>no</followMouse>
+    <raiseOnFocus>no</raiseOnFocus>
+  </focus>
+
+  <placement>
+    <policy>cascade</policy>
+  </placement>
+
+  <snapping>
+    <range>16</range>
+    <topMaximize>yes</topMaximize>
+  </snapping>
+
+  <keyboard>
+    <default />
+    <keybind key="W-Return"><action name="Execute" command="foot"/></keybind>
+    <keybind key="W-d"><action name="Execute" command="fuzzel"/></keybind>
+    <keybind key="W-q"><action name="Close"/></keybind>
+    <keybind key="W-l"><action name="Execute" command="swaylock"/></keybind>
+    <keybind key="W-Escape"><action name="Execute" command="stag-power"/></keybind>
+    <keybind key="W-f"><action name="ToggleMaximize"/></keybind>
+    <keybind key="W-Left"><action name="SnapToEdge" direction="left"/></keybind>
+    <keybind key="W-Right"><action name="SnapToEdge" direction="right"/></keybind>
+    <keybind key="W-Up"><action name="Maximize"/></keybind>
+    <keybind key="W-Down"><action name="Iconify"/></keybind>
+    <keybind key="A-Tab"><action name="NextWindow"/></keybind>
+    <keybind key="XF86_MonBrightnessUp"><action name="Execute" command="brightnessctl set +5%"/></keybind>
+    <keybind key="XF86_MonBrightnessDown"><action name="Execute" command="brightnessctl set 5%-"/></keybind>
+    <keybind key="XF86_AudioRaiseVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"/></keybind>
+    <keybind key="XF86_AudioLowerVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"/></keybind>
+    <keybind key="XF86_AudioMute"><action name="Execute" command="wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"/></keybind>
+    <keybind key="Print"><action name="Execute" command="sh -c 'grim -g \"$(slurp)\" - | wl-copy'"/></keybind>
+  </keyboard>
+
+  <mouse>
+    <default />
+    <context name="Root">
+      <mousebind button="Right" action="Press"><action name="ShowMenu" menu="root-menu"/></mousebind>
+    </context>
+  </mouse>
+</labwc_config>

@@ -1,0 +1,9 @@
+# StagOS labwc autostart
+swaybg -c '#0a0a0a' &
+waybar &
+mako &
+nm-applet --indicator &
+# idle: lock at 5m, lock before sleep (screen-off left out; needs no extra deps)
+swayidle -w \
+    timeout 300 'swaylock' \
+    before-sleep 'swaylock' &

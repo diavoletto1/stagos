@@ -1,16 +1,27 @@
 {
   "layer": "top",
   "position": "top",
-  "height": 26,
+  "height": 28,
   "spacing": 4,
-  "modules-left": ["sway/workspaces", "sway/mode"],
-  "modules-center": ["sway/window"],
+  "modules-left": ["wlr/taskbar"],
+  "modules-center": ["clock"],
   "modules-right": [
     "custom/tailscale", "custom/gps", "custom/capture",
-    "network", "cpu", "memory", "pulseaudio", "battery", "clock"
+    "network", "cpu", "memory", "pulseaudio", "battery", "custom/power"
   ],
-  "sway/workspaces": { "disable-scroll": true, "format": "{name}" },
-  "sway/window": { "max-length": 60, "tooltip": false },
+  "wlr/taskbar": {
+    "format": "{icon} {title:.18}",
+    "icon-size": 16,
+    "tooltip-format": "{title}",
+    "on-click": "activate",
+    "on-click-middle": "close",
+    "ignore-list": ["fuzzel"]
+  },
+  "custom/power": {
+    "format": "  PWR  ",
+    "on-click": "stag-power",
+    "tooltip": false
+  },
   "custom/tailscale": {
     "exec": "$HOME/.config/waybar/scripts/tailscale.sh",
     "interval": 10, "return-type": "json"

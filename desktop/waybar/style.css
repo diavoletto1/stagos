@@ -9,31 +9,42 @@ window#waybar {
   border-bottom: 1px solid #2a2a2a;
   color: #d4d4d4;
 }
-#workspaces button {
+
+/* app bar (open windows) */
+#taskbar button {
   padding: 0 8px;
-  background: transparent;
-  color: #888;
-  border-bottom: 2px solid transparent;
+  margin: 2px 1px;
+  color: #d4d4d4;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
   border-radius: 0;
 }
-#workspaces button.focused {
+#taskbar button.active {
   color: #f0f0f0;
   border-bottom: 2px solid #c8102e;
+  background: #1f1f1f;
 }
-#workspaces button.urgent { color: #c8102e; }
-#window { color: #888; }
+
+#clock { color: #f0f0f0; font-weight: 500; }
 
 #custom-tailscale, #custom-gps, #custom-capture,
-#network, #cpu, #memory, #pulseaudio, #battery, #clock {
+#network, #cpu, #memory, #pulseaudio, #battery, #custom-power {
   padding: 0 8px;
   color: #d4d4d4;
 }
-#clock { color: #f0f0f0; font-weight: 500; }
-#battery.warning { color: #c8102e; }
-#battery.critical { color: #c8102e; }
+
+/* power button */
+#custom-power {
+  color: #f0f0f0;
+  background: #c8102e;
+  margin: 3px 2px 3px 6px;
+  font-weight: 700;
+}
+#custom-power:hover { background: #a30d24; }
+
+#battery.warning, #battery.critical { color: #c8102e; }
 #battery.charging { color: #a8a8a8; }
 #network.disconnected { color: #c8102e; }
-/* custom module states set class "ok" / "off" via json alt */
 .ok  { color: #a8a8a8; }
 .off { color: #555; }
 .hot { color: #c8102e; }

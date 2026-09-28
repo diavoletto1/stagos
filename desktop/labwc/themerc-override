@@ -1,0 +1,30 @@
+# StagOS window decorations - stag-control palette
+border.width: 2
+padding.height: 5
+padding.width: 8
+
+# active window
+window.active.title.bg.color: #0a0a0a
+window.active.label.text.color: #f0f0f0
+window.active.border.color: #c8102e
+window.active.button.unpressed.image.color: #d4d4d4
+window.active.button.hover.image.color: #ffffff
+window.active.button.iconify.unpressed.image.color: #a8a8a8
+window.active.button.max.unpressed.image.color: #a8a8a8
+window.active.button.close.unpressed.image.color: #c8102e
+
+# inactive window
+window.inactive.title.bg.color: #1a1a1a
+window.inactive.label.text.color: #888888
+window.inactive.border.color: #2a2a2a
+window.inactive.button.unpressed.image.color: #666666
+
+# right-click menu + on-screen display
+menu.items.bg.color: #1a1a1a
+menu.items.text.color: #d4d4d4
+menu.items.active.bg.color: #c8102e
+menu.items.active.text.color: #ffffff
+menu.separator.color: #2a2a2a
+osd.bg.color: #0a0a0a
+osd.border.color: #2a2a2a
+osd.label.text.color: #f0f0f0
