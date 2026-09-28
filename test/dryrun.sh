@@ -5,8 +5,14 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "== shellcheck =="
-mapfile -t files < <(find . -name '*.sh' -o -name '*.conf' | sort)
-shellcheck -x -s bash "${files[@]}" && echo "shellcheck clean"
+mapfile -t files < <(find . -name '*.sh' -o -path './config/*.conf' | sort)
+shellcheck -x -s bash "${files[@]}"
+echo "shellcheck clean"
+
+echo; echo "== xmllint =="
+mapfile -t xml < <(find . -name '*.xml' | sort)
+xmllint --noout "${xml[@]}"
+echo "xml clean"
 
 echo; echo "== install.sh (dry) =="
 DRY_RUN=1 ASSUME_YES=1 ./install.sh
