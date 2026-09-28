@@ -7,7 +7,7 @@ stagos_60_desktop() {
     return 0
   fi
   local pkgs=(labwc swaybg swayidle swaylock waybar foot fuzzel mako
-    wlr-randr grim slurp wl-clipboard brightnessctl playerctl polkit
+    wlr-randr grim slurp wl-clipboard libnotify brightnessctl playerctl polkit
     xdg-desktop-portal-wlr network-manager-applet pavucontrol
     pipewire pipewire-pulse wireplumber
     papirus-icon-theme ttf-jetbrains-mono inter-font)

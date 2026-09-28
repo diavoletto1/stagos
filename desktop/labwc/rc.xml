@@ -38,7 +38,7 @@
     <keybind key="XF86_AudioRaiseVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"/></keybind>
     <keybind key="XF86_AudioLowerVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"/></keybind>
     <keybind key="XF86_AudioMute"><action name="Execute" command="wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"/></keybind>
-    <keybind key="Print"><action name="Execute" command="sh -c 'grim -g &quot;$(slurp)&quot; - | wl-copy'"/></keybind>
+    <keybind key="Print"><action name="Execute" command="sh -c 'd=$HOME/Pictures/Screenshots; mkdir -p &quot;$d&quot;; f=&quot;$d/$(date +%F_%H-%M-%S).png&quot;; grim -g &quot;$(slurp)&quot; &quot;$f&quot; &amp;&amp; wl-copy &lt; &quot;$f&quot; &amp;&amp; notify-send Screenshot &quot;$f&quot;'"/></keybind>
   </keyboard>
 
   <mouse>
