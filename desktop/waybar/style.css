@@ -2,6 +2,7 @@
 * {
   font-family: "JetBrains Mono", monospace;
   font-size: 17px;
+  font-weight: 700;
   min-height: 0;
 }
 window#waybar {
@@ -25,7 +26,7 @@ window#waybar {
   background: #1f1f1f;
 }
 
-#clock { color: #f0f0f0; font-weight: 500; }
+#clock { color: #f0f0f0; font-weight: 800; }
 
 #custom-tailscale, #custom-gps, #custom-capture,
 #network, #cpu, #memory, #pulseaudio, #battery, #custom-power {

@@ -26,7 +26,7 @@ stagos_60_desktop() {
   run sudo install -Dm755 "$HERE/desktop/bin/stag-power.sh" /usr/local/bin/stag-power
 
   # wallpapers: home = STAG OS wordmark, lock = Ultron orb (regen: tools/make-walls.py)
-  run sudo install -Dm644 -t /usr/share/stagos "$HERE/desktop/wall/stag-wall.png" "$HERE/desktop/wall/stag-lock.png"
+  run sudo install -Dm644 -t /usr/share/stagos "$HERE/desktop/wall/stag-wall.png" "$HERE/desktop/wall/stag-wall-stag.png" "$HERE/desktop/wall/stag-lock.png"
 
   # zsh config
   run cp -a "$HERE/desktop/zsh/.zshrc" "$HOME/.zshrc"

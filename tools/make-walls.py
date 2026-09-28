@@ -2,6 +2,7 @@
 """Render StagOS wallpapers (2560x1440, stag-control palette).
 
   desktop/wall/stag-wall.png  home: "STAG OS" wordmark, white underline, red HUD corners
+  desktop/wall/stag-wall-stag.png  home alt: same, "STAG" only
   desktop/wall/stag-lock.png  lock: the orb, scaled up (source: desktop/wall/stag-orb.png)
 
 Needs Pillow + Orbitron (OFL). Font is fetched to tools/.cache on first run.
@@ -72,13 +73,13 @@ def _r(x0, y0, x1, y1):
     return (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
 
 
-def home():
+def home(text="STAG OS", name="stag-wall.png"):
     s = SS
     img = Image.new("RGBA", (W * s, H * s), BG + (255,))
     d = ImageDraw.Draw(img, "RGBA")
     corners(d, s)
 
-    text, f, track = "STAG OS", font(170 * s, "Bold"), 38 * s
+    f, track = font(170 * s, "Bold"), 38 * s
     tw = text_width(d, text, f, track)
     asc = f.getbbox("S")  # cap box for vertical centering
     cap_h = asc[3] - asc[1]
@@ -97,7 +98,7 @@ def home():
     uy = cy + cap_h // 2 + 56 * s
     d.rectangle((x0, uy, x0 + tw, uy + 4 * s), fill=WHITE)
 
-    img.convert("RGB").resize((W, H), Image.LANCZOS).save(os.path.join(WALL, "stag-wall.png"), optimize=True)
+    img.convert("RGB").resize((W, H), Image.LANCZOS).save(os.path.join(WALL, name), optimize=True)
 
 
 def lock():
@@ -109,5 +110,6 @@ def lock():
 
 if __name__ == "__main__":
     home()
+    home("STAG", "stag-wall-stag.png")
     lock()
-    print("wrote desktop/wall/stag-wall.png, desktop/wall/stag-lock.png")
+    print("wrote stag-wall.png, stag-wall-stag.png, stag-lock.png")
