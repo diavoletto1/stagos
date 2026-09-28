@@ -22,6 +22,10 @@ stagos_60_desktop() {
   done
   run chmod +x "$cfg"/waybar/scripts/*.sh
 
+  # swaylock auth (keeps faillock) + forgiving lockout ceiling so typos don't trap you
+  run sudo install -Dm644 "$HERE/desktop/pam/swaylock" /etc/pam.d/swaylock
+  run sudo sed -i 's/^# *deny = 3/deny = 10/; s/^# *unlock_time = 600/unlock_time = 120/' /etc/security/faillock.conf
+
   # start sway automatically on the first virtual terminal, nowhere else
   local zp="$HOME/.zprofile"
   if ! grep -q 'StagOS: autostart sway' "$zp" 2>/dev/null; then
