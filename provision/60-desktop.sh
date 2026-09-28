@@ -6,7 +6,7 @@ stagos_60_desktop() {
     warn "STAGOS_DESKTOP=0, skipping desktop layer"
     return 0
   fi
-  local pkgs=(sway swaybg swayidle swaylock swaynag waybar foot fuzzel mako
+  local pkgs=(sway swaybg swayidle swaylock waybar foot fuzzel mako
     grim slurp wl-clipboard brightnessctl playerctl polkit
     xdg-desktop-portal-wlr network-manager-applet pavucontrol
     pipewire pipewire-pulse wireplumber
