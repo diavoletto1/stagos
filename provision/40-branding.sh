@@ -18,12 +18,24 @@ stagos_40_branding() {
     run sudo plymouth-set-default-theme -R spinner
     warn "custom plymouth theme not built yet (assets/plymouth/stagos)"
   fi
-  if [[ -d "$HERE/assets/grub/stagos" ]]; then
-    run sudo cp -r "$HERE/assets/grub/stagos" /boot/grub/themes/
-    run sudo sed -i 's|^#\?GRUB_THEME=.*|GRUB_THEME="/boot/grub/themes/stagos/theme.txt"|' /etc/default/grub
+  # GRUB: background image + stag colors (robust; no custom fonts needed)
+  if [[ -f "$HERE/assets/grub/stagos/background.png" ]]; then
+    run sudo install -Dm644 "$HERE/assets/grub/stagos/background.png" /boot/grub/stagos-bg.png
+    run sudo sed -i \
+      -e 's|^#\?GRUB_THEME=.*|#GRUB_THEME=|' \
+      -e 's|^#\?GRUB_BACKGROUND=.*|GRUB_BACKGROUND="/boot/grub/stagos-bg.png"|' \
+      -e 's|^#\?GRUB_COLOR_NORMAL=.*|GRUB_COLOR_NORMAL="light-gray/black"|' \
+      -e 's|^#\?GRUB_COLOR_HIGHLIGHT=.*|GRUB_COLOR_HIGHLIGHT="light-red/black"|' \
+      /etc/default/grub
+    grep -q '^GRUB_BACKGROUND=' /etc/default/grub 2>/dev/null || \
+      run sudo tee -a /etc/default/grub >/dev/null <<'GEOF'
+GRUB_BACKGROUND="/boot/grub/stagos-bg.png"
+GRUB_COLOR_NORMAL="light-gray/black"
+GRUB_COLOR_HIGHLIGHT="light-red/black"
+GEOF
     run sudo grub-mkconfig -o /boot/grub/grub.cfg
   else
-    warn "custom grub theme not built yet (assets/grub/stagos)"
+    warn "grub background not built yet (assets/grub/stagos/background.png)"
   fi
   ok "branding applied"
 }

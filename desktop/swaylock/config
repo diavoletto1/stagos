@@ -1,4 +1,6 @@
 # StagOS - swaylock
+image=/usr/share/stagos/stag-wall.png
+scaling=fill
 color=0a0a0a
 inside-color=1a1a1a
 ring-color=2a2a2a

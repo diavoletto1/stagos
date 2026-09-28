@@ -25,6 +25,12 @@ stagos_60_desktop() {
   # power menu on PATH for the labwc session (keybind + bar button)
   run sudo install -Dm755 "$HERE/desktop/bin/stag-power.sh" /usr/local/bin/stag-power
 
+  # static Ultron wallpaper (desktop background + swaylock image)
+  run sudo install -Dm644 "$HERE/desktop/wall/stag-wall.png" /usr/share/stagos/stag-wall.png
+
+  # zsh config
+  run cp -a "$HERE/desktop/zsh/.zshrc" "$HOME/.zshrc"
+
   # swaylock auth (keeps faillock) + forgiving lockout ceiling so typos don't trap you
   run sudo install -Dm644 "$HERE/desktop/pam/swaylock" /etc/pam.d/swaylock
   run sudo sed -i 's/^# *deny = 3/deny = 10/; s/^# *unlock_time = 600/unlock_time = 120/' /etc/security/faillock.conf

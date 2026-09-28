@@ -1,5 +1,5 @@
 # StagOS labwc autostart
-swaybg -c '#0a0a0a' &
+swaybg -i /usr/share/stagos/stag-wall.png -m fill &
 waybar &
 mako &
 nm-applet --indicator &

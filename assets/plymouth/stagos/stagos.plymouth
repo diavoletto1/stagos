@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=StagOS
+Description=StagOS boot splash - stag ring on black
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/stagos
+ScriptFile=/usr/share/plymouth/themes/stagos/stagos.script
