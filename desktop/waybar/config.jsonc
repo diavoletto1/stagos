@@ -18,7 +18,7 @@
     "ignore-list": ["fuzzel"]
   },
   "custom/dock": {
-    "format": " APPS ",
+    "format": " DOCK ",
     "on-click": "stag-dock",
     "tooltip": false
   },

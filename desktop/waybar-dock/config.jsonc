@@ -1,22 +1,27 @@
-// StagOS app dock: second waybar, bottom-center. Toggled by stag-dock
-// (Super+A or the APPS button on the top bar); closed = not running.
+// StagOS app dock: second waybar, bottom-center, text tiles (HUD style).
+// Toggled by stag-dock (Super+A or DOCK on the top bar); closed = not running.
+// Text, not icons: waybar's image module deadlocks with gdk-pixbuf's glycin loader.
 {
   "name": "dock",
   "layer": "top",
   "position": "bottom",
   "exclusive": false,
-  "width": 470,
-  "height": 60,
+  "width": 620,
+  "height": 56,
   "margin-bottom": 12,
   "modules-center": [
-    "image#launcher", "image#term", "image#firefox", "image#files",
-    "image#kismet", "image#wireshark", "image#mon"
+    "custom/apps", "custom/term", "custom/web", "custom/files",
+    "custom/kismet", "custom/shark", "custom/mon"
   ],
-  "image#launcher":  { "path": "/usr/share/icons/Papirus/64x64/apps/applications-all.svg",        "size": 40, "on-click": "fuzzel" },
-  "image#term":      { "path": "/usr/share/icons/Papirus/64x64/apps/utilities-terminal.svg",      "size": 40, "on-click": "foot" },
-  "image#firefox":   { "path": "/usr/share/icons/Papirus/64x64/apps/firefox.svg",                 "size": 40, "on-click": "firefox" },
-  "image#files":     { "path": "/usr/share/icons/Papirus/64x64/apps/system-file-manager.svg",     "size": 40, "on-click": "foot -T files -e yazi" },
-  "image#kismet":    { "path": "/usr/share/icons/Papirus/64x64/apps/kali-wireless-attacks-trans.svg", "size": 40, "on-click": "stag-kismet" },
-  "image#wireshark": { "path": "/usr/share/icons/Papirus/64x64/apps/org.wireshark.Wireshark.svg", "size": 40, "on-click": "wireshark" },
-  "image#mon":       { "path": "/usr/share/icons/Papirus/64x64/apps/nm-device-wireless.svg",      "size": 40, "on-click": "foot -T stag-mon -e stag-mon" }
+  "custom/apps":   { "format": "APPS",   "on-click": "fuzzel",                      "tooltip-format": "app launcher" },
+  "custom/term":   { "format": "TERM",   "on-click": "foot",                        "tooltip-format": "terminal (foot)" },
+  "custom/web":    { "format": "WEB",    "on-click": "firefox",                     "tooltip-format": "firefox" },
+  "custom/files":  { "format": "FILES",  "on-click": "foot -T files -e yazi",       "tooltip-format": "files (yazi)" },
+  "custom/kismet": { "format": "KISMET", "on-click": "stag-kismet",                 "tooltip-format": "start kismet + open web UI" },
+  "custom/shark":  { "format": "SHARK",  "on-click": "wireshark",                   "tooltip-format": "wireshark" },
+  "custom/mon": {
+    "exec": "$HOME/.config/waybar/scripts/capture.sh",
+    "return-type": "json", "interval": 5,
+    "on-click": "foot -T stag-mon -e stag-mon"
+  }
 }

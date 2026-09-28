@@ -1,15 +1,28 @@
 /* StagOS dock - stag-control HUD tokens */
-* { min-height: 0; }
+* {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 16px;
+  font-weight: 700;
+  min-height: 0;
+}
 window#waybar.dock {
   background: rgba(10, 10, 10, 0.94);
   border: 1px solid #2a2a2a;
   border-top: 2px solid #c8102e;
 }
-#image {
-  padding: 0 10px;
-  border-bottom: 2px solid transparent;
+#custom-apps, #custom-term, #custom-web, #custom-files,
+#custom-kismet, #custom-shark, #custom-mon {
+  padding: 0 14px;
+  margin: 8px 4px;
+  color: #d4d4d4;
+  background: #141414;
+  border: 1px solid #2a2a2a;
 }
-#image:hover {
-  background: #1f1f1f;
-  border-bottom: 2px solid #c8102e;
+#custom-apps:hover, #custom-term:hover, #custom-web:hover, #custom-files:hover,
+#custom-kismet:hover, #custom-shark:hover, #custom-mon:hover {
+  color: #ffffff;
+  border-color: #c8102e;
 }
+#custom-apps { color: #f0f0f0; border-color: #c8102e; }
+#custom-mon.off { color: #777777; }
+#custom-mon.hot { color: #c8102e; border-color: #c8102e; }
