@@ -3,8 +3,9 @@
 if ! command -v gpspipe >/dev/null; then
   printf '{"text":"GPS n/a","class":"off"}\n'; exit 0
 fi
-# one TPV/SKY sample, non-blocking-ish
-j=$(timeout 2 gpspipe -w -n 8 2>/dev/null | grep -m1 '"class":"TPV"')
+# one TPV/SKY sample, non-blocking-ish. STAGOS_GPSD=host:port overrides (tests/gpsfake).
+# shellcheck disable=SC2086
+j=$(timeout 2 gpspipe -w -n 8 ${STAGOS_GPSD:-} 2>/dev/null | grep -m1 '"class":"TPV"')
 mode=$(printf '%s' "$j" | grep -oE '"mode":[0-9]' | grep -oE '[0-9]$')
 case "${mode:-0}" in
   3) printf '{"text":"GPS 3D","class":"ok"}\n' ;;
