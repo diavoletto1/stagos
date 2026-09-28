@@ -2,4 +2,4 @@
 XCURSOR_THEME=Adwaita
 XCURSOR_SIZE=24
 XDG_CURRENT_DESKTOP=labwc:wlroots
-# scale the 1440p panel so text is readable
+# panel scale (1.5x) is set in autostart via wlr-randr; labwc has no output config

@@ -7,7 +7,7 @@ stagos_60_desktop() {
     return 0
   fi
   local pkgs=(labwc swaybg swayidle swaylock waybar foot fuzzel mako
-    grim slurp wl-clipboard brightnessctl playerctl polkit
+    wlr-randr grim slurp wl-clipboard brightnessctl playerctl polkit
     xdg-desktop-portal-wlr network-manager-applet pavucontrol
     pipewire pipewire-pulse wireplumber
     papirus-icon-theme ttf-jetbrains-mono inter-font)
@@ -25,8 +25,8 @@ stagos_60_desktop() {
   # power menu on PATH for the labwc session (keybind + bar button)
   run sudo install -Dm755 "$HERE/desktop/bin/stag-power.sh" /usr/local/bin/stag-power
 
-  # static Ultron wallpaper (desktop background + swaylock image)
-  run sudo install -Dm644 "$HERE/desktop/wall/stag-wall.png" /usr/share/stagos/stag-wall.png
+  # wallpapers: home = STAG OS wordmark, lock = Ultron orb (regen: tools/make-walls.py)
+  run sudo install -Dm644 -t /usr/share/stagos "$HERE/desktop/wall/stag-wall.png" "$HERE/desktop/wall/stag-lock.png"
 
   # zsh config
   run cp -a "$HERE/desktop/zsh/.zshrc" "$HOME/.zshrc"

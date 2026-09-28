@@ -1,7 +1,7 @@
 /* StagOS waybar - stag-control HUD tokens */
 * {
   font-family: "JetBrains Mono", monospace;
-  font-size: 12px;
+  font-size: 14px;
   min-height: 0;
 }
 window#waybar {
@@ -12,8 +12,8 @@ window#waybar {
 
 /* app bar (open windows) */
 #taskbar button {
-  padding: 0 8px;
-  margin: 2px 1px;
+  padding: 0 10px;
+  margin: 3px 2px;
   color: #d4d4d4;
   background: #1a1a1a;
   border: 1px solid #2a2a2a;
@@ -29,7 +29,7 @@ window#waybar {
 
 #custom-tailscale, #custom-gps, #custom-capture,
 #network, #cpu, #memory, #pulseaudio, #battery, #custom-power {
-  padding: 0 8px;
+  padding: 0 10px;
   color: #d4d4d4;
 }
 

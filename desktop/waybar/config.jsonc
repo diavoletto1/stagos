@@ -1,8 +1,8 @@
 {
   "layer": "top",
   "position": "top",
-  "height": 28,
-  "spacing": 4,
+  "height": 34,
+  "spacing": 6,
   "modules-left": ["wlr/taskbar"],
   "modules-center": ["clock"],
   "modules-right": [
@@ -11,7 +11,7 @@
   ],
   "wlr/taskbar": {
     "format": "{icon} {title:.18}",
-    "icon-size": 16,
+    "icon-size": 20,
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close",
