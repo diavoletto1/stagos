@@ -1,6 +1,6 @@
 # StagOS window decorations - stag-control palette
 border.width: 2
-padding.height: 5
+padding.height: 6
 padding.width: 8
 
 # active window

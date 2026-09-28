@@ -21,6 +21,9 @@ stagos_60_desktop() {
     run cp -a "$HERE/desktop/$d" "$cfg/"
   done
   run chmod +x "$cfg"/waybar/scripts/*.sh
+  # StagOS labwc theme (SVG titlebar buttons)
+  run mkdir -p "$HOME/.local/share/themes"
+  run cp -a "$HERE/desktop/theme/StagOS" "$HOME/.local/share/themes/"
 
   # power menu on PATH for the labwc session (keybind + bar button)
   run sudo install -Dm755 "$HERE/desktop/bin/stag-power.sh" /usr/local/bin/stag-power

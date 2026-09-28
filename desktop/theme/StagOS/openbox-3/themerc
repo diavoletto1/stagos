@@ -1,0 +1,7 @@
+# StagOS labwc theme (colors live in ~/.config/labwc/themerc-override)
+# bigger titlebar buttons; SVG icons in this dir, stag-control palette
+window.button.width: 34
+window.button.height: 28
+window.button.spacing: 2
+window.button.hover.bg.color: #c8102e40
+window.button.hover.bg.corner-radius: 0

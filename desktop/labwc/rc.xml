@@ -2,8 +2,9 @@
 <!-- StagOS labwc config: floating windows with real title bars, edge snapping. -->
 <labwc_config>
   <theme>
+    <name>StagOS</name>
     <cornerRadius>0</cornerRadius>
-    <font place="ActiveWindow"><name>Inter</name><size>10</size><slant>normal</slant><weight>bold</weight></font>
+    <font place="ActiveWindow"><name>Inter</name><size>12</size><slant>normal</slant><weight>bold</weight></font>
   </theme>
 
   <focus>
