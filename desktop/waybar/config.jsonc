@@ -19,7 +19,7 @@
   },
   "custom/dock": {
     "format": " APPS ",
-    "on-click": "pkill -USR1 -f 'waybar-doc[k]/config'",
+    "on-click": "stag-dock",
     "tooltip": false
   },
   "custom/power": {

@@ -26,7 +26,7 @@ stagos_60_desktop() {
   run mkdir -p "$HOME/.local/share/themes"
   run cp -a "$HERE/desktop/theme/StagOS" "$HOME/.local/share/themes/"
 
-  # stag-* helpers on PATH (power menu, kismet launcher, monitor toggle)
+  # stag-* helpers on PATH (power menu, dock toggle, kismet launcher, monitor toggle)
   local b
   for b in "$HERE"/desktop/bin/stag-*.sh; do
     run sudo install -Dm755 "$b" "/usr/local/bin/$(basename "$b" .sh)"
