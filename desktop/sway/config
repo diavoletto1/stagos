@@ -97,7 +97,3 @@ exec swayidle -w \
 exec mako
 exec nm-applet --indicator
 exec waybar
-
-bar {
-    swaybar_command waybar
-}
