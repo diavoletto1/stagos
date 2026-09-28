@@ -3,7 +3,7 @@
 
   desktop/wall/stag-wall.png  home: "STAG OS" wordmark, white underline, red HUD corners
   desktop/wall/stag-wall-stag.png  home alt: same, "STAG" only
-  desktop/wall/stag-lock.png  lock: the orb, scaled up (source: desktop/wall/stag-orb.png)
+  desktop/wall/stag-lock.png  lock: the orb, scaled up, HUD corners + small STAG OS (source: stag-orb.png)
 
 Needs Pillow + Orbitron (OFL). Font is fetched to tools/.cache on first run.
 Usage: python3 tools/make-walls.py
@@ -105,7 +105,20 @@ def lock():
     src = Image.open(os.path.join(WALL, "stag-orb.png")).convert("RGB")
     cw, ch = round(W / ORB_ZOOM), round(H / ORB_ZOOM)
     box = ((W - cw) // 2, (H - ch) // 2, (W - cw) // 2 + cw, (H - ch) // 2 + ch)
-    src.crop(box).resize((W, H), Image.LANCZOS).save(os.path.join(WALL, "stag-lock.png"), optimize=True)
+    img = src.crop(box).resize((W, H), Image.LANCZOS).convert("RGBA")
+    d = ImageDraw.Draw(img, "RGBA")
+    corners(d, 1)
+
+    # small wordmark tucked inside the bottom-right bracket
+    text, f, track = "STAG OS", font(46, "Bold"), 10
+    tw = text_width(d, text, f, track)
+    cap = f.getbbox("S")
+    right, base = W - 96 - 120, H - 96 - 72  # clear of the bracket arms
+    x0, y0 = right - tw, base - (cap[3] - cap[1]) - cap[1]
+    tracked(d, (x0, y0), text, f, WHITE, track)
+    d.rectangle((x0, base + 16, right, base + 18), fill=WHITE)
+
+    img.convert("RGB").save(os.path.join(WALL, "stag-lock.png"), optimize=True)
 
 
 if __name__ == "__main__":
