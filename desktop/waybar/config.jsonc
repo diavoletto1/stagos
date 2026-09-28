@@ -7,7 +7,7 @@
   "modules-center": ["clock"],
   "modules-right": [
     "custom/tailscale", "custom/gps", "custom/capture",
-    "network", "cpu", "memory", "pulseaudio", "battery", "custom/power"
+    "network", "cpu", "memory", "pulseaudio", "battery", "custom/dock", "custom/power"
   ],
   "wlr/taskbar": {
     "format": "{icon} {title:.18}",
@@ -16,6 +16,11 @@
     "on-click": "activate",
     "on-click-middle": "close",
     "ignore-list": ["fuzzel"]
+  },
+  "custom/dock": {
+    "format": " APPS ",
+    "on-click": "pkill -USR1 -f 'waybar-doc[k]/config'",
+    "tooltip": false
   },
   "custom/power": {
     "format": "  PWR  ",

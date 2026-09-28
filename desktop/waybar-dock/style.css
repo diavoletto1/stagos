@@ -1,0 +1,15 @@
+/* StagOS dock - stag-control HUD tokens */
+* { min-height: 0; }
+window#waybar.dock {
+  background: rgba(10, 10, 10, 0.94);
+  border: 1px solid #2a2a2a;
+  border-top: 2px solid #c8102e;
+}
+#image {
+  padding: 0 10px;
+  border-bottom: 2px solid transparent;
+}
+#image:hover {
+  background: #1f1f1f;
+  border-bottom: 2px solid #c8102e;
+}

@@ -1,0 +1,23 @@
+// StagOS app dock: second waybar, bottom-center, starts hidden.
+// Toggle: Super+A or the APPS button on the top bar (SIGUSR1 to this instance).
+{
+  "name": "dock",
+  "layer": "top",
+  "position": "bottom",
+  "exclusive": false,
+  "start_hidden": true,
+  "width": 470,
+  "height": 60,
+  "margin-bottom": 12,
+  "modules-center": [
+    "image#launcher", "image#term", "image#firefox", "image#files",
+    "image#kismet", "image#wireshark", "image#mon"
+  ],
+  "image#launcher":  { "path": "/usr/share/icons/Papirus/64x64/apps/applications-all.svg",        "size": 40, "on-click": "fuzzel" },
+  "image#term":      { "path": "/usr/share/icons/Papirus/64x64/apps/utilities-terminal.svg",      "size": 40, "on-click": "foot" },
+  "image#firefox":   { "path": "/usr/share/icons/Papirus/64x64/apps/firefox.svg",                 "size": 40, "on-click": "firefox" },
+  "image#files":     { "path": "/usr/share/icons/Papirus/64x64/apps/system-file-manager.svg",     "size": 40, "on-click": "foot -T files -e yazi" },
+  "image#kismet":    { "path": "/usr/share/icons/Papirus/64x64/apps/kali-wireless-attacks-trans.svg", "size": 40, "on-click": "stag-kismet" },
+  "image#wireshark": { "path": "/usr/share/icons/Papirus/64x64/apps/org.wireshark.Wireshark.svg", "size": 40, "on-click": "wireshark" },
+  "image#mon":       { "path": "/usr/share/icons/Papirus/64x64/apps/nm-device-wireless.svg",      "size": 40, "on-click": "foot -T stag-mon -e stag-mon" }
+}

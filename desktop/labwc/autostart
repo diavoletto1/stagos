@@ -4,6 +4,7 @@ out=$(wlr-randr 2>/dev/null | awk '/^eDP/{print $1; exit}')
 [ -n "$out" ] && wlr-randr --output "$out" --scale 1.5
 swaybg -i /usr/share/stagos/stag-wall-stag.png -m fill &
 waybar &
+waybar -c "$HOME/.config/waybar-dock/config.jsonc" -s "$HOME/.config/waybar-dock/style.css" &
 mako &
 nm-applet --indicator &
 # idle: lock at 5m, lock before sleep (screen-off left out; needs no extra deps)

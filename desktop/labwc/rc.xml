@@ -25,6 +25,7 @@
     <default />
     <keybind key="W-Return"><action name="Execute" command="foot"/></keybind>
     <keybind key="W-d"><action name="Execute" command="fuzzel"/></keybind>
+    <keybind key="W-a"><action name="Execute" command="pkill -USR1 -f 'waybar-doc[k]/config'"/></keybind>
     <keybind key="W-q"><action name="Close"/></keybind>
     <keybind key="W-l"><action name="Execute" command="swaylock"/></keybind>
     <keybind key="W-Escape"><action name="Execute" command="stag-power"/></keybind>

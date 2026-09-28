@@ -29,10 +29,14 @@ window#waybar {
 #clock { color: #f0f0f0; font-weight: 800; }
 
 #custom-tailscale, #custom-gps, #custom-capture,
-#network, #cpu, #memory, #pulseaudio, #battery, #custom-power {
+#network, #cpu, #memory, #pulseaudio, #battery, #custom-dock, #custom-power {
   padding: 0 12px;
   color: #d4d4d4;
 }
+
+/* dock toggle */
+#custom-dock { color: #f0f0f0; border: 1px solid #2a2a2a; margin: 3px 2px; }
+#custom-dock:hover { border-color: #c8102e; }
 
 /* power button */
 #custom-power {

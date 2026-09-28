@@ -10,14 +10,15 @@ stagos_60_desktop() {
     wlr-randr grim slurp wl-clipboard libnotify brightnessctl playerctl polkit
     xdg-desktop-portal-wlr network-manager-applet pavucontrol
     pipewire pipewire-pulse wireplumber
-    papirus-icon-theme ttf-jetbrains-mono inter-font)
+    papirus-icon-theme ttf-jetbrains-mono inter-font
+    firefox yazi wireshark-qt)
   run sudo pacman -S --needed --noconfirm "${pkgs[@]}"
 
   # drop configs into ~/.config (idempotent: -a over existing)
   local cfg="$HOME/.config"
   run mkdir -p "$cfg"
   local d
-  for d in labwc waybar foot fuzzel mako swaylock; do
+  for d in labwc waybar waybar-dock foot fuzzel mako swaylock; do
     run cp -a "$HERE/desktop/$d" "$cfg/"
   done
   run chmod +x "$cfg"/waybar/scripts/*.sh
@@ -25,8 +26,11 @@ stagos_60_desktop() {
   run mkdir -p "$HOME/.local/share/themes"
   run cp -a "$HERE/desktop/theme/StagOS" "$HOME/.local/share/themes/"
 
-  # power menu on PATH for the labwc session (keybind + bar button)
-  run sudo install -Dm755 "$HERE/desktop/bin/stag-power.sh" /usr/local/bin/stag-power
+  # stag-* helpers on PATH (power menu, kismet launcher, monitor toggle)
+  local b
+  for b in "$HERE"/desktop/bin/stag-*.sh; do
+    run sudo install -Dm755 "$b" "/usr/local/bin/$(basename "$b" .sh)"
+  done
 
   # wallpapers: home = STAG OS wordmark, lock = Ultron orb (regen: tools/make-walls.py)
   run sudo install -Dm644 -t /usr/share/stagos "$HERE/desktop/wall/stag-wall.png" "$HERE/desktop/wall/stag-wall-stag.png" "$HERE/desktop/wall/stag-lock.png"
