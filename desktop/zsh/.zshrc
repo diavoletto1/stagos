@@ -64,3 +64,12 @@ mondown() { sudo ip link set "$1" down && sudo iw dev "$1" set type managed && s
 
 # ---- stag ----
 alias stagpull='cd ~/stagos && git pull'
+
+# ---- modern CLI (only if installed) ----
+if command -v eza >/dev/null; then
+  alias ls='eza --group-directories-first' ll='eza -lh --git' la='eza -lha --git' lt='eza --tree --level=2'
+fi
+command -v bat >/dev/null && alias cat='bat --paging=never --style=plain'
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
+[ -r /usr/share/fzf/key-bindings.zsh ] && source /usr/share/fzf/key-bindings.zsh
+[ -r /usr/share/fzf/completion.zsh ] && source /usr/share/fzf/completion.zsh
