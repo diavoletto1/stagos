@@ -6,7 +6,11 @@ swaybg -i /usr/share/stagos/stag-wall-stag.png -m fill &
 waybar &
 mako &
 nm-applet --indicator &
+udiskie &
+wl-paste --watch cliphist store &
+wlsunset -l 28.2 -L -82.3 &
 # idle: lock at 5m, lock before sleep (screen-off left out; needs no extra deps)
 swayidle -w \
     timeout 300 'swaylock' \
+    timeout 360 'wlopm --off \*' resume 'wlopm --on \*' \
     before-sleep 'swaylock' &
