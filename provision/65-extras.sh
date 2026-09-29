@@ -20,5 +20,9 @@ stagos_65_extras() {
   run sudo pacman -S --needed --noconfirm "${pkgs[@]}"
   run sudo systemctl enable --now bluetooth.service earlyoom.service paccache.timer
   run xdg-user-dirs-update
+  # tty1 autologin: the disk-unlock screen is the login page, so skip the second prompt
+  if [[ "${STAGOS_AUTOLOGIN:-1}" == "1" ]]; then
+    run sudo install -Dm644 "$HERE/assets/getty-tty1-autologin.conf" /etc/systemd/system/getty@tty1.service.d/autologin.conf
+  fi
   ok "desktop extras installed"
 }
