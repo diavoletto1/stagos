@@ -22,6 +22,7 @@ stagos_60_desktop() {
     run cp -a "$HERE/desktop/$d" "$cfg/"
   done
   run chmod +x "$cfg"/waybar/scripts/*.sh
+  run cp "$HERE/desktop/mimeapps.list" "$cfg/mimeapps.list"
   # StagOS labwc theme (SVG titlebar buttons)
   run mkdir -p "$HOME/.local/share/themes"
   run cp -a "$HERE/desktop/theme/StagOS" "$HOME/.local/share/themes/"

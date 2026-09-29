@@ -26,6 +26,10 @@
     <keybind key="W-Return"><action name="Execute" command="foot"/></keybind>
     <keybind key="W-d"><action name="Execute" command="fuzzel"/></keybind>
     <keybind key="W-a"><action name="Execute" command="stag-dock"/></keybind>
+    <keybind key="W-e"><action name="Execute" command="thunar"/></keybind>
+    <keybind key="W-b"><action name="Execute" command="firefox"/></keybind>
+    <keybind key="W-v"><action name="Execute" command="sh -c 'cliphist list | fuzzel --dmenu | cliphist decode | wl-copy'"/></keybind>
+    <keybind key="W-S-s"><action name="Execute" command="sh -c 'grim -g &quot;$(slurp)&quot; - | swappy -f -'"/></keybind>
     <keybind key="W-q"><action name="Close"/></keybind>
     <keybind key="W-l"><action name="Execute" command="swaylock"/></keybind>
     <keybind key="W-Escape"><action name="Execute" command="stag-power"/></keybind>
