@@ -18,7 +18,7 @@ stagos_60_desktop() {
   local cfg="$HOME/.config"
   run mkdir -p "$cfg"
   local d
-  for d in labwc waybar waybar-dock foot fuzzel mako swaylock; do
+  for d in labwc waybar waybar-dock foot fuzzel mako swaylock gtk-3.0 gtk-4.0 qt6ct; do
     run cp -a "$HERE/desktop/$d" "$cfg/"
   done
   run chmod +x "$cfg"/waybar/scripts/*.sh
