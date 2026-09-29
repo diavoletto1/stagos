@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=StagOS
-Description=StagOS boot splash - stag ring on black
+Description=StagOS boot splash - disk unlock styled as the login page
 ModuleName=script
 
 [script]

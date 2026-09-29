@@ -18,7 +18,7 @@ stagos_40_branding() {
     run sudo plymouth-set-default-theme -R spinner
     warn "custom plymouth theme not built yet (assets/plymouth/stagos)"
   fi
-  # GRUB: background image + stag colors (robust; no custom fonts needed)
+  # GRUB: background + stag colors; menu hidden (hold Esc/Shift at boot to show it)
   if [[ -f "$HERE/assets/grub/stagos/background.png" ]]; then
     run sudo install -Dm644 "$HERE/assets/grub/stagos/background.png" /boot/grub/stagos-bg.png
     run sudo sed -i \
@@ -26,6 +26,8 @@ stagos_40_branding() {
       -e 's|^#\?GRUB_BACKGROUND=.*|GRUB_BACKGROUND="/boot/grub/stagos-bg.png"|' \
       -e 's|^#\?GRUB_COLOR_NORMAL=.*|GRUB_COLOR_NORMAL="light-gray/black"|' \
       -e 's|^#\?GRUB_COLOR_HIGHLIGHT=.*|GRUB_COLOR_HIGHLIGHT="light-red/black"|' \
+      -e 's|^#\?GRUB_TIMEOUT_STYLE=.*|GRUB_TIMEOUT_STYLE=hidden|' \
+      -e 's|^#\?GRUB_TIMEOUT=.*|GRUB_TIMEOUT=1|' \
       /etc/default/grub
     grep -q '^GRUB_BACKGROUND=' /etc/default/grub 2>/dev/null || \
       run sudo tee -a /etc/default/grub >/dev/null <<'GEOF'
