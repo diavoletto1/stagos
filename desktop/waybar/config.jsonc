@@ -3,12 +3,56 @@
   "position": "top",
   "height": 42,
   "spacing": 8,
-  "modules-left": ["wlr/taskbar"],
-  "modules-center": ["clock"],
+  "modules-left": ["ext/workspaces", "wlr/taskbar"],
+  "modules-center": ["clock", "custom/notification"],
   "modules-right": [
-    "custom/tailscale", "custom/gps", "custom/capture",
-    "network", "cpu", "memory", "pulseaudio", "battery", "tray", "custom/dock", "custom/power"
+    "custom/stag", "custom/tailscale", "custom/gps", "custom/capture",
+    "network", "bluetooth", "pulseaudio", "backlight", "battery",
+    "tray", "custom/dock", "custom/power"
   ],
+  "ext/workspaces": {
+    "format": "{name}",
+    "on-click": "activate",
+    "sort-by-number": true
+  },
+  "custom/stag": {
+    "format": " STAG ",
+    "on-click": "stag-menu",
+    "tooltip-format": "stag-* services",
+    "tooltip": true
+  },
+  "custom/notification": {
+    "exec": "swaync-client -swb",
+    "return-type": "json",
+    "escape": true,
+    "format": "{icon}",
+    "format-icons": {
+      "notification": "NOTIF *",
+      "none": "NOTIF",
+      "dnd-notification": "DND *",
+      "dnd-none": "DND",
+      "inhibited-notification": "NOTIF *",
+      "inhibited-none": "NOTIF",
+      "dnd-inhibited-notification": "DND *",
+      "dnd-inhibited-none": "DND"
+    },
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "swaync-client -d -sw",
+    "tooltip": false
+  },
+  "bluetooth": {
+    "format": "BT {status}",
+    "format-connected": "BT {device_alias}",
+    "format-off": "BT off",
+    "format-disabled": "BT off",
+    "tooltip-format": "{controller_alias} {num_connections} connected",
+    "on-click": "blueman-manager"
+  },
+  "backlight": {
+    "format": "BRT {percent}%",
+    "on-scroll-up": "brightnessctl set +5%",
+    "on-scroll-down": "brightnessctl set 5%-"
+  },
   "wlr/taskbar": {
     "format": "{icon} {title:.18}",
     "icon-size": 24,
@@ -45,14 +89,17 @@
     "format-ethernet": "ETH {ipaddr}",
     "format-disconnected": "WIFI down",
     "tooltip-format": "{ifname} {ipaddr}",
-    "on-click": "foot -e nmtui"
+    "max-length": 22,
+    "on-click": "nm-connection-editor"
   },
   "cpu": { "format": "CPU {usage}%", "interval": 3 },
   "memory": { "format": "MEM {percentage}%", "interval": 5 },
   "pulseaudio": {
     "format": "VOL {volume}%",
     "format-muted": "MUTE",
-    "on-click": "pavucontrol"
+    "on-click": "pavucontrol",
+    "on-scroll-up": "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 2%+",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"
   },
   "battery": {
     "states": { "warning": 30, "critical": 15 },

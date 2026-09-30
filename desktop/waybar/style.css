@@ -29,7 +29,8 @@ window#waybar {
 #clock { color: #f0f0f0; font-weight: 800; }
 
 #custom-tailscale, #custom-gps, #custom-capture,
-#network, #cpu, #memory, #pulseaudio, #battery, #custom-dock, #custom-power {
+#network, #bluetooth, #backlight, #cpu, #memory, #pulseaudio, #battery, #custom-dock, #custom-power,
+#custom-notification {
   padding: 0 12px;
   color: #d4d4d4;
 }
@@ -53,3 +54,21 @@ window#waybar {
 .ok  { color: #a8a8a8; }
 .off { color: #555; }
 .hot { color: #c8102e; }
+
+/* workspaces */
+#workspaces button {
+  padding: 0 10px;
+  margin: 3px 2px;
+  color: #888;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 0;
+}
+#workspaces button.active { color: #f0f0f0; border-bottom: 2px solid #c8102e; background: #1f1f1f; }
+
+/* stag menu + notification center */
+#custom-stag { color: #f0f0f0; border: 1px solid #2a2a2a; margin: 3px 2px; padding: 0 12px; }
+#custom-stag:hover { border-color: #c8102e; }
+#custom-notification { color: #a8a8a8; }
+#bluetooth.off, #bluetooth.disabled { color: #555; }
+#bluetooth.connected { color: #f0f0f0; }

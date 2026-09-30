@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Claude
+Comment=Claude web app
+Exec=chromium --app=https://claude.ai
+Icon=claude
+Terminal=false
+Categories=Network;Utility;
+StartupWMClass=chrome-claude.ai__-Default

@@ -1,0 +1,13 @@
+/* StagOS dock (nwg-dock): stag-control HUD, hairline border, red accent */
+window {
+  background: #0a0a0a;
+  border-style: solid;
+  border-width: 1px;
+  border-color: #2a2a2a;
+  border-radius: 0;
+}
+#box { padding: 6px 10px; }
+button, image { background: none; border-style: none; box-shadow: none; color: #d4d4d4; }
+button { padding: 4px; margin: 0 4px; border-radius: 0; font-size: 12px; }
+button:hover { background-color: #1f1f1f; border-bottom: 2px solid #c8102e; }
+button:focus { box-shadow: none; }

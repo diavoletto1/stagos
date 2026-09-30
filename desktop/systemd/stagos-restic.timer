@@ -1,0 +1,10 @@
+[Unit]
+Description=StagOS restic backup schedule
+
+[Timer]
+OnCalendar=@SCHEDULE@
+Persistent=true
+RandomizedDelaySec=30min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,6 @@
+#!/bin/bash
+# fixture: fake flatpak for container tests (Bambu Studio / LocalSend are hundreds of MB). Logs calls;
+# `info` reports "not installed" so the install path is exercised. Set FAKE_FLATPAK_INSTALLED=1 to flip that.
+echo "[fake flatpak] $*" >> "${FAKE_LOG:-/tmp/fake-tools.log}"
+if [ "$1" = info ]; then [ "${FAKE_FLATPAK_INSTALLED:-0}" = 1 ]; exit; fi
+exit 0

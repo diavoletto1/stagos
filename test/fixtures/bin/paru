@@ -1,0 +1,4 @@
+#!/bin/bash
+# fixture: fake paru for container tests (AUR builds are far too heavy). Logs what would be built.
+echo "[fake paru] $*" >> "${FAKE_LOG:-/tmp/fake-tools.log}"
+exit 0

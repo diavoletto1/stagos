@@ -1,0 +1,10 @@
+#!/bin/bash
+# fixture: generic fake command. Symlink it under the name of the real tool (nmcli, fuzzel, grim...)
+# in a temp dir at the front of PATH. Each call appends "name args" to $FAKE_LOG, saves stdin to
+# $FAKE_DIR/<name>.stdin, prints $FAKE_DIR/<name>.out if present, and exits with the number in
+# $FAKE_DIR/<name>.rc (default 0).
+name="$(basename "$0")"
+echo "$name $*" >> "${FAKE_LOG:?}"
+if [ -p /dev/stdin ] || [ -f /dev/stdin ]; then cat > "${FAKE_DIR:?}/$name.stdin"; fi
+[ -f "$FAKE_DIR/$name.out" ] && cat "$FAKE_DIR/$name.out"
+exit "$(cat "$FAKE_DIR/$name.rc" 2>/dev/null || echo 0)"

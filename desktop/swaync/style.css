@@ -1,0 +1,27 @@
+/* StagOS Control Center + notifications (swaync): black, grey surfaces, hairlines, red accent */
+* { font-family: "Inter", sans-serif; font-size: 14px; border-radius: 0; }
+.notification, .control-center, .notification-row .notification-background .notification {
+  background: #1a1a1a; color: #f0f0f0; border: 1px solid #2a2a2a; box-shadow: none;
+}
+.control-center { background: #0a0a0a; margin: 0; }
+.notification-row { outline: none; }
+.notification.critical { border-color: #c8102e; }
+.summary { color: #f0f0f0; font-weight: 700; }
+.body, .time { color: #a8a8a8; }
+.close-button { background: #2a2a2a; color: #f0f0f0; border: none; }
+.close-button:hover { background: #c8102e; }
+.widget-title { color: #f0f0f0; margin: 8px; font-size: 16px; font-weight: 700; }
+.widget-title > button { background: #1a1a1a; color: #d4d4d4; border: 1px solid #2a2a2a; }
+.widget-title > button:hover { border-color: #c8102e; }
+.widget-dnd { color: #d4d4d4; margin: 8px; }
+.widget-dnd > switch { background: #2a2a2a; border: 1px solid #2a2a2a; }
+.widget-dnd > switch:checked { background: #c8102e; }
+.widget-dnd > switch slider { background: #f0f0f0; }
+.widget-buttons-grid { margin: 8px; padding: 0; }
+.widget-buttons-grid > flowbox > flowboxchild > button {
+  background: #1a1a1a; color: #d4d4d4; border: 1px solid #2a2a2a; min-height: 44px; font-weight: 700;
+}
+.widget-buttons-grid > flowbox > flowboxchild > button:hover { border-color: #c8102e; }
+.widget-buttons-grid > flowbox > flowboxchild > button:checked { background: #c8102e; color: #ffffff; border-color: #c8102e; }
+.widget-mpris { background: #1a1a1a; border: 1px solid #2a2a2a; margin: 8px; padding: 6px; }
+.control-center-list-placeholder, .notification-group-headers { color: #555; }
