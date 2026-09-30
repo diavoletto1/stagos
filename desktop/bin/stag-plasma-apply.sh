@@ -84,7 +84,7 @@ kw() { # kw FILE GROUP[/SUB...] KEY VALUE
   for g in $grp; do args+=(--group "$g"); done
   unset IFS
   if [ "$dry" = 1 ]; then say "[dry] $file [$grp] $key=$val"; return 0; fi
-  kwriteconfig6 --file "$file" "${args[@]}" --key "$key" -- "$val" || warn "could not write $file [$grp] $key"
+  kwriteconfig6 --file "$file" "${args[@]}" --key "$key" -- "$val" </dev/null || warn "could not write $file [$grp] $key"
 }
 kr() { # kr FILE GROUP KEY: current value
   kreadconfig6 --file "$1" --group "$2" --key "$3" 2>/dev/null
