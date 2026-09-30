@@ -69,7 +69,7 @@ conf() { ini_get "$CONF" "$1" "$2" || ini_get "$SRC/desktop.conf.default" "$1" "
 
 # ---- change tracking: which config files this run rewrote ----
 FILES=(kdeglobals kwinrc kwinrulesrc kglobalshortcutsrc kcminputrc powerdevilrc kscreenlockerrc plasmarc
-  ksplashrc breezerc kwalletrc kded6rc baloofilerc)
+  ksplashrc breezerc kwalletrc baloofilerc)
 snap() {
   local f
   for f in "${FILES[@]}"; do [ -f "$CFG/$f" ] && md5sum "$CFG/$f"; done

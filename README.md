@@ -75,6 +75,7 @@ On stagpad: `cd /opt/stagos && git pull && ./stagos-desktop`, then log out and b
 | `keyring` | gnome-keyring + seahorse. With `STAGOS_KEYRING_EMPTY=1` creates a login keyring with an empty password so it opens under autologin; **off by default**, see the note |
 | `stag` | `chromium --app` launcher per service in `STAGOS_STAG_PATHS` at `<scheme>://<host>/<name>/` (from `config/local.conf`), icon tiles, listed in the bar's STAG menu. URLs are written only under `~/.local` and `~/.config` |
 | `hidpi` | output scale `STAGOS_OUTPUT_SCALE` (default 1.5), Inter + JetBrains Mono, fontconfig light hinting with grayscale AA, `desktop.env` for the runtime tunables |
+| `plasma` | a minimal KDE Plasma 6 Wayland session next to labwc (see [Plasma](#plasma)): StagOS HUD look, top bar + floating dock, `stag-session` on tty1. `STAGOS_DESKTOP_PLASMA=0` skips it |
 
 **Why TLP, not power-profiles-daemon:** the repo already enables TLP; the two conflict; TLP's runtime PM and USB/PCIe/SATA
 tuning matter more on a 2014 ThinkPad battery than PPD's three profiles.
@@ -102,11 +103,62 @@ Autologin follows the LUKS unlock, so PAM never sees your password and a normal 
 `STAGOS_KEYRING_EMPTY=1` gives an empty-password `login` keyring: silent, protected at rest by LUKS only, readable by anything running as you.
 Set it in `config/stagos.conf` (or the environment) and run `./stagos-desktop keyring`. An existing keyring is never overwritten.
 
+### Plasma
+
+A second desktop, installed next to labwc (labwc keeps working unchanged): KDE Plasma 6 on Wayland with a
+Mac-style layout and the StagOS HUD look. Minimal package set (not the whole `plasma` group, no display
+manager, no SDDM): the LUKS passphrase stays the only login, tty1 autologin then starts the session.
+
+- **Look**: `StagOS` color scheme (bg `#0a0a0a`, surface `#111111`, hairline `#2a2a2a`, accent `#c8102e`), a `StagOS`
+  Plasma theme (flat panels and popups, 1 px hairline, 3 px corners), Breeze window decoration in those colors with
+  a thin title bar and minimize/maximize/close on the right, Inter 10 and JetBrains Mono 10, Papirus-Dark icons.
+- **Layout** (`org.stagos.desktop` global theme): 26 px top bar with the menu, the global app menu, tray and clock;
+  a floating dock at the bottom center that hides only when a window overlaps it, launchers from
+  `[dock] launchers` in `~/.config/stagos/desktop.conf` (`|` = separator, missing apps skipped); no desktop icons.
+- **KWin**: blur for panels/popups, no wobbly/magic lamp/translucency, animations at 0.7, drag to an edge tiles,
+  Overview on **Meta+W** / **Ctrl+Up** / the 4-finger swipe, 4 desktops, click to focus, and every dock app
+  remembers its window position and size (one KWin rule per app).
+- **Keys**: **Meta+Space** KRunner (Spotlight), **Meta+L** lock, **Print** region shot, Super+Shift+3/4/5 like labwc,
+  Super+Return foot, Super+E files, Super+Up/Down maximize/minimize, Ctrl+Alt+Left/Right desktops.
+- **Touchpad and power**: tap to click, natural scroll, clickfinger (every touchpad until you change one in System
+  Settings); lid closes to sleep, screen dims, no automatic sleep on AC, locks at 5 min and on resume.
+
+Everything Plasma-side is written by `stag-plasma-apply` with `kwriteconfig6`, one key at a time, so settings you
+change in System Settings stay unless `./stagos-desktop plasma` sets the same key again.
+
+**Switch sessions** (takes effect at the next tty1 login; log out to switch now):
+
+```
+stag-session plasma      # default: Plasma
+stag-session labwc       # default: labwc
+stag-session --status    # default=, next= (what tty1 will start and why), fails=
+```
+
+**Fallback**: without Plasma installed tty1 starts labwc. If Plasma exits with an error within 30 s twice in a
+row, stag-session starts labwc instead and logs it to `~/.cache/stagos/session.log`; it keeps starting labwc until
+you run `stag-session plasma`. Escape hatch as before: log in on tty2 for a plain shell.
+
+**Reset the layout** (top bar + dock back to the StagOS layout): `stag-plasma-apply --reset-layout`. With Plasma
+running it rebuilds now; from a tty the old layout is moved aside (`plasma-org.kde.plasma.desktop-appletsrc.stagos-bak-*`)
+and the next Plasma start builds a fresh one. A normal `stag-plasma-apply` never touches your layout, it only
+syncs the dock launchers; the first Plasma login applies the layout once (`~/.local/state/stagos/plasma-layout-applied`).
+
+**Coexistence**: `QT_QPA_PLATFORMTHEME=qt6ct` and `GTK_THEME` exist only in labwc's environment and stag-session
+strips them from Plasma. nm-applet, blueman and the other labwc helpers get `NotShowIn=KDE` autostart overrides and
+their systemd user units a `ConditionEnvironment=!XDG_CURRENT_DESKTOP=KDE` drop-in, so Plasma has one tray icon per
+thing. `org.freedesktop.Notifications` has one owner per session (`stag-session notify-daemon`: Plasma's own under
+KDE, swaync or mako under labwc). `kde-gtk-config` is not installed on purpose: it rewrites `~/.config/gtk-3.0` and
+`gtk-4.0` at every Plasma login, which would change the labwc GTK look; GTK apps use the same StagOS settings in both
+sessions. gnome-keyring stays the secret store (KWallet disabled), baloo indexing is off (plocate covers search).
+The panel scale (`STAGOS_OUTPUT_SCALE`, 1.5 on the internal eDP panel) is set once at the first Plasma login with
+kscreen-doctor; change it later in System Settings > Display.
+
 ### Testing
 
 ```
 ./test/desktop-scripts.sh                    # helper scripts + config invariants, no root, fakes from test/fixtures/bin
 ./test/desktop-container.sh all              # rootless podman Arch: shellcheck, dry run, real run, 2nd run must change 0 files, per-module reruns, config validation, headless labwc/waybar/swaync, btrfs branch
+./test/desktop-container.sh plasma           # module plasma only: dry run, run 1, run 2 = 0 changes, Plasma config + session checks
 ./test/desktop-container.sh clean            # remove the image and package cache
 ```
 
@@ -122,3 +174,6 @@ Set it in `config/stagos.conf` (or the environment) and run `./stagos-desktop ke
 8. Lid, `fwupdmgr get-updates`, `wlsunset` schedule, `wf-recorder` (try `STAGOS_REC_CODEC=h264_vaapi`).
 9. `systemctl --user status stagos-restic.timer`, one manual `systemctl --user start stagos-restic.service`; on btrfs: `snapper list` after a pacman run.
 10. gnome-keyring: a chromium password save survives a reboot (with the flag on); `onedrive` authorisation; Flatpak installs of Bambu Studio and LocalSend; VS Code and libinput-gestures AUR builds (slow on this CPU).
+11. Plasma: `stag-session plasma`, log out; top bar + dock appear, Meta+Space opens KRunner, the 4-finger swipe opens
+    Overview, lid close suspends, the internal panel is at 1.5; a window reopens where it was closed; `stag-session labwc`
+    brings labwc back unchanged (bar, dock, notifications, GTK look).

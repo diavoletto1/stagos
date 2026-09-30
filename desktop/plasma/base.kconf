@@ -128,7 +128,5 @@ kscreenlockerrc|Greeter/Wallpaper/org.kde.image/General|Image|file:///usr/share/
 # gnome-keyring (module keyring) is the secret store in both sessions: keep KWallet out of it
 kwalletrc|Wallet|Enabled|false
 kwalletrc|org.freedesktop.secrets|apiEnabled|false
-# never let Plasma rewrite ~/.config/gtk-3.0|gtk-4.0 (the labwc GTK look); kde-gtk-config is not installed either
-kded6rc|Module-gtkconfig|autoload|false
 # no file indexer on a 2014 laptop (plocate already covers file search)
 baloofilerc|Basic Settings|Indexing-Enabled|false
