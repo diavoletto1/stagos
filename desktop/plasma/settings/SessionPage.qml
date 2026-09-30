@@ -20,7 +20,7 @@ PageFrame {
             onActivated: page.conf.set("session", "default", page.kinds[currentIndex].value)
         }
         QQC2.Label {
-            text: "Used at the next login on tty1. Plasma falls back to labwc by itself if it cannot start."
+            text: "Used at the next login on tty1. Plasma falls back to labwc by itself if it cannot start; saving any setting here lets it try Plasma again."
             opacity: 0.6; font: Kirigami.Theme.smallFont; wrapMode: Text.Wrap
             Layout.maximumWidth: Kirigami.Units.gridUnit * 25
         }

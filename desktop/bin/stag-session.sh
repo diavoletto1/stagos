@@ -6,7 +6,8 @@
 #   stag-session notify-daemon  D-Bus activation of org.freedesktop.Notifications (see below)
 # Plasma = plasma-dbus-run-session-if-needed startplasma-wayland; labwc when Plasma is not installed.
 # If Plasma exits non-zero within 30 s twice in a row, start labwc instead and log it to
-# ~/.cache/stagos/session.log. The fallback sticks until `stag-session plasma`.
+# ~/.cache/stagos/session.log. The fallback sticks until `stag-session plasma` or until desktop.conf is
+# saved again (StagOS Settings, a hand edit).
 set -uo pipefail
 
 CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -56,7 +57,11 @@ default_session() {
   case "$d" in plasma|labwc) echo "$d" ;; *) echo plasma ;; esac
 }
 plasma_installed() { [ -x "$STARTPLASMA" ]; }
-fails() { local n; n="$(cat "$FAILS" 2>/dev/null)"; [[ "$n" =~ ^[0-9]+$ ]] && echo "$n" || echo 0; }
+fails() { # a desktop.conf saved after the last failure counts as "try Plasma again"
+  local n
+  if [ -f "$CONF" ] && [ "$CONF" -nt "$FAILS" ]; then echo 0; return; fi
+  n="$(cat "$FAILS" 2>/dev/null)"; [[ "$n" =~ ^[0-9]+$ ]] && echo "$n" || echo 0
+}
 
 # next: what `start` would run now, plus the reason
 next_session() {
@@ -74,7 +79,7 @@ run_labwc() {
 }
 
 run_plasma() {
-  local t0 rc dur n cmd=()
+  local t0 rc dur n tries=0 cmd=()
   [ -x "$DBUS_WRAP" ] && cmd+=("$DBUS_WRAP")
   cmd+=("$STARTPLASMA")
   while :; do
@@ -88,9 +93,10 @@ run_plasma() {
       log "plasma exited rc=$rc after ${dur}s"
       exit "$rc"
     fi
-    n=$(( $(fails) + 1 )); echo "$n" > "$FAILS"
+    n=$(( $(fails) + 1 )); echo "$n" > "$FAILS"; tries=$((tries + 1))
     log "plasma failed fast: rc=$rc after ${dur}s ($n/$MAX_FAILS)"
-    if [ "$n" -ge "$MAX_FAILS" ]; then
+    # tries: never loop on Plasma even when the counter file cannot be written
+    if [ "$n" -ge "$MAX_FAILS" ] || [ "$tries" -ge "$MAX_FAILS" ]; then
       log "FALLBACK: plasma failed $n times in a row within ${FAST}s; starting labwc (stag-session plasma to retry)"
       run_labwc "fallback"
     fi

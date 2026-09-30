@@ -134,8 +134,16 @@ check "session: fallback logged" grep -q 'FALLBACK' "$HOME/.cache/stagos/session
 check "session: status shows the fallback" bash -c "stag-session --status | grep -q '^next=labwc (plasma failed 2x'"
 : > "$FAKE_LOG"; stag-session start >/dev/null 2>&1
 check "session: fallback sticks (no plasma retry)" bash -c "! grep -q '^startplasma-wayland' '$FAKE_LOG' && grep -q '^labwc' '$FAKE_LOG'"
+SC="$HOME/.config/stagos/desktop.conf"; mkdir -p "${SC%/*}"
+printf '[bar]\ncpu=false\n' > "$SC"; touch -d '+2 seconds' "$SC"
+check "session: desktop.conf saved after the fallback (StagOS Settings) retries Plasma" bash -c "stag-session --status | grep -q '^next=plasma (default)'"
+rm -f "$SC"; echo 2 > "$HOME/.cache/stagos/session-plasma-fails"
 stag-session plasma >/dev/null
 check "session: 'stag-session plasma' clears the fallback" bash -c "stag-session --status | grep -qx 'fails=0'"
+rm -f "$SC" "$HOME/.cache/stagos/session-plasma-fails"; mkdir "$HOME/.cache/stagos/session-plasma-fails"
+: > "$FAKE_LOG"; stag-session start >/dev/null 2>&1
+check "session: unwritable fail counter still falls back after 2 tries (no loop)" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 2 && grep -q '^labwc' '$FAKE_LOG'"
+rmdir "$HOME/.cache/stagos/session-plasma-fails"
 : > "$FAKE_LOG"; STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1
 check "session: a slow plasma crash is not a fast failure" bash -c "grep -q '^startplasma-wayland' '$FAKE_LOG' && ! grep -q '^labwc' '$FAKE_LOG' && stag-session --status | grep -qx 'fails=0'"
 cp "$ROOT/test/fixtures/plasma-desktop.conf" "$HOME/dc.conf"; export STAGOS_DESKTOP_CONF="$HOME/dc.conf"

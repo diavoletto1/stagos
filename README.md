@@ -136,7 +136,8 @@ stag-session --status    # default=, next= (what tty1 will start and why), fails
 
 **Fallback**: without Plasma installed tty1 starts labwc. If Plasma exits with an error within 30 s twice in a
 row, stag-session starts labwc instead and logs it to `~/.cache/stagos/session.log`; it keeps starting labwc until
-you run `stag-session plasma`. Escape hatch as before: log in on tty2 for a plain shell.
+you run `stag-session plasma` or save any change in StagOS Settings. Escape hatch as before: log in on tty2 for a
+plain shell.
 
 **Reset the layout** (top bar + dock back to the StagOS layout): `stag-plasma-apply --reset-layout`. With Plasma
 running it rebuilds now; from a tty the old layout is moved aside (`plasma-org.kde.plasma.desktop-appletsrc.stagos-bak-*`)
