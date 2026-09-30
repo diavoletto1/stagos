@@ -248,7 +248,9 @@ Item {
                     Layout.fillWidth: true
                 }
                 HudButton {
-                    text: cc.monOn ? "Monitor: off" : "Monitor: on"
+                    // disabled says why: no capture card configured, or the configured one is unplugged
+                    text: cc.monOn ? "Monitor: off" : cc.cardPresent ? "Monitor: on"
+                        : (cc.r.capture && cc.r.capture.iface ? "Monitor: unplugged" : "Monitor: no card")
                     hot: cc.monOn
                     enabled: cc.cardPresent
                     onClicked: cc.plasmoidRoot.act(cc.monOn ? "recon mon off" : "recon mon on", "recon")

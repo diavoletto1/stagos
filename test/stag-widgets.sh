@@ -282,6 +282,8 @@ check "layout.js: slots keep their markers" bash -c "for w in menu status contro
 check "layout.js: org.stagos.menu and org.stagos.status in the bar" bash -c "grep -q 'addWidget(\"org.stagos.menu\")' '$L' && grep -q 'addWidget(\"org.stagos.status\")' '$L'"
 check "layout.js: stand-ins gone (kickoff, digital clock)" bash -c "! grep -qE 'org.kde.plasma.(kickoff|digitalclock)' '$L'"
 check "layout.js: systray keeps notifications, drops the applets the readouts replace" bash -c "grep -q 'org.kde.plasma.notifications' '$L' && grep -q 'org.kde.plasma.networkmanagement' '$L'"
+CC="$ROOT/desktop/plasma/plasmoids/org.stagos.status/contents/ui/ControlCenter.qml"
+check "Control Center: a disabled Monitor button says why" bash -c "grep -q 'Monitor: no card' '$CC' && grep -q 'Monitor: unplugged' '$CC'"
 
 echo; echo "stag-widgets: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
