@@ -60,7 +60,8 @@ function stagosSyncDock(groups) {
 }
 
 // [bar] appmenu: add or remove the global menu applet in the StagOS top bar. A new one goes right after
-// the STAG menu: the panel keeps its applet order in [General] AppletOrder ("id;id;..."), reloaded here.
+// the STAG menu: the panel inserts an applet dropped at (x, y) next to the widget under that point (the
+// right half of a widget = after it), and saves that order itself. Rewriting AppletOrder does not move it.
 function stagosSyncAppmenu(want) {
     var bar = stagosFindPanel("bar");
     if (bar === null) {
@@ -77,16 +78,11 @@ function stagosSyncAppmenu(want) {
         print("\nappmenu: unchanged");
         return;
     }
-    var added = String(bar.addWidget("org.kde.plasma.appmenu").id);
-    bar.currentConfigGroup = ["General"];
-    var order = String(bar.readConfig("AppletOrder", "")).split(";").filter(function (id) {
-        return id !== "" && id !== added;
-    });
     var menus = bar.widgets("org.stagos.menu");
-    var at = menus.length > 0 ? order.indexOf(String(menus[0].id)) + 1 : 0;
-    order.splice(at, 0, added);
-    bar.writeConfig("AppletOrder", order.join(";"));
-    bar.reloadConfig();
+    var g = menus.length > 0 ? menus[0].geometry : null;
+    var w = g && g.width > 0 ? g.width : 40;
+    // the STAG menu is the bar's first widget; with no menu (or a hidden one) this still lands at the left end
+    bar.addWidget("org.kde.plasma.appmenu", Math.max(1, Math.round((g ? g.x : 0) + w * 0.75)), 1, -1, -1);
     print("\nappmenu: added");
 }
 
