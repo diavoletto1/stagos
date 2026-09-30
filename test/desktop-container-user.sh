@@ -79,6 +79,34 @@ PY
   rm -rf "$fk"
   stag-plasma-apply --base > /tmp/apply-again.log 2>&1
   t "stag-plasma-apply --base again changes 0 files" grep -q 'done (0 config file(s) changed)' /tmp/apply-again.log
+  widget_checks
+}
+
+# ---- StagOS widgets (p2): stag-ctl / stag-status installed, plasmoids installed and loadable ----
+widget_checks() {
+  local D="$HOME/.local/share" id tmp q
+  sec "StagOS widgets: stag-ctl, stag-status, plasmoids"
+  for f in stag-lib stag-ctl stag-status; do t "/usr/local/bin/$f" test -x "/usr/local/bin/$f"; done
+  t "plasma pkg playerctl + wl-clipboard" pacman -Q playerctl wl-clipboard
+  for id in org.stagos.menu org.stagos.status; do
+    t "plasmoid $id installed (kpackagetool6 --list)" bash -c "kpackagetool6 --type Plasma/Applet --list 2>/dev/null | grep -qx $id"
+    t "plasmoid $id matches the repo" diff -rq "$PWD/desktop/plasma/plasmoids/$id" "$D/plasma/plasmoids/$id"
+    tmp="$(mktemp -d)"
+    t "plasmoid $id: kpackagetool6 --install into a clean HOME" env HOME="$tmp" XDG_DATA_HOME="$tmp/share" \
+      kpackagetool6 --type Plasma/Applet --install "$PWD/desktop/plasma/plasmoids/$id"
+    rm -rf "$tmp"
+  done
+  t "generated layout places org.stagos.menu + org.stagos.status" bash -c "L='$D/plasma/look-and-feel/org.stagos.desktop/contents/layouts/org.kde.plasma.desktop-layout.js'; grep -q 'org.stagos.menu' \"\$L\" && grep -q 'org.stagos.status' \"\$L\""
+  t "stag-status --json on the installed system parses" bash -c "stag-status --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"v\"] == 1 and d[\"fields\"]'"
+  t "stag-ctl about on the installed system parses" bash -c "stag-ctl about | python3 -c 'import json,sys; json.load(sys.stdin)'"
+  # qmllint: a report, not a gate (Plasma's QML modules are not all visible to qmllint outside plasmashell)
+  q=/usr/lib/qt6/bin/qmllint
+  if [[ -x "$q" ]]; then
+    "$q" -I /usr/lib/qt6/qml "$PWD"/desktop/plasma/plasmoids/*/contents/ui/*.qml > /tmp/qmllint.log 2>&1
+    echo "qmllint: $(grep -c '^Warning' /tmp/qmllint.log) warning(s), $(grep -ciE '^Error|: error' /tmp/qmllint.log) error(s) (report only, /tmp/qmllint.log)"
+    grep -E '^(Warning|Error)' /tmp/qmllint.log | sed 's|'"$PWD"'/||' | sort | uniq -c | sort -rn | head -25
+    t "qmllint: no syntax errors" bash -c "! grep -qiE 'SyntaxError|Expected token|Unexpected token' /tmp/qmllint.log"
+  fi
 }
 
 if [[ "$phase" == plasma ]]; then
@@ -101,6 +129,7 @@ if [[ "$phase" == plasma ]]; then
   plasma_checks
   sec "helper unit tests"
   t "test/desktop-scripts.sh" bash test/desktop-scripts.sh
+  t "test/stag-widgets.sh" bash test/stag-widgets.sh
   echo; echo "PLASMA RESULT: $pass passed, $fail failed"
   [ "$fail" -eq 0 ]; exit
 fi
