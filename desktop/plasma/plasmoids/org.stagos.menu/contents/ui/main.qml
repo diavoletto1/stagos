@@ -22,12 +22,14 @@ PlasmoidItem {
     toolTipMainText: ""
     toolTipSubText: ""
 
+    // Plasma sizes the popup when it opens and does not grow it later: load the entries before that
+    Component.onCompleted: refresh()
     onExpandedChanged: {
-        if (expanded) {
+        if (root.expanded) {
             refresh();
         } else {
-            aboutOpen = false;
-            confirm = null;
+            root.aboutOpen = false;
+            root.confirm = null;
         }
     }
 
@@ -67,6 +69,12 @@ PlasmoidItem {
     }
 
     Timer {
+        interval: 60000
+        running: !root.expanded
+        repeat: true
+        onTriggered: root.refresh()
+    }
+    Timer {
         interval: 5000
         running: true
         repeat: true
@@ -103,27 +111,25 @@ PlasmoidItem {
         Layout.preferredWidth: 280
         Layout.minimumWidth: 280
         Layout.maximumWidth: 280
-        Layout.preferredHeight: (root.confirm ? confirmView.implicitHeight : menu.implicitHeight) + 16
+        // one fixed height for every view (Plasma does not resize an open popup): the tallest one
+        Layout.preferredHeight: Math.max(menu.implicitHeight, aboutView.implicitHeight, confirmView.implicitHeight) + 16
         Layout.minimumHeight: Layout.preferredHeight
         Layout.maximumHeight: Layout.preferredHeight
 
         // ---- the menu ----
         ColumnLayout {
             id: menu
-            visible: !root.confirm
-            anchors.fill: parent
+            visible: !root.confirm && !root.aboutOpen
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
             anchors.margins: 8
             spacing: 0
 
             MenuEntry {
                 text: "About This Computer"
-                trailing: root.aboutOpen ? "-" : "+"
-                onTriggered: root.aboutOpen = !root.aboutOpen
-            }
-            AboutPanel {
-                Layout.fillWidth: true
-                visible: root.aboutOpen
-                info: root.about
+                trailing: ">"
+                onTriggered: root.aboutOpen = true
             }
             Separator {}
             MenuEntry {
@@ -175,11 +181,34 @@ PlasmoidItem {
             }
         }
 
+        // ---- about this computer ----
+        ColumnLayout {
+            id: aboutView
+            visible: root.aboutOpen && !root.confirm
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 8
+            spacing: 4
+
+            MenuEntry {
+                text: "About This Computer"
+                trailing: "<"
+                onTriggered: root.aboutOpen = false
+            }
+            AboutPanel {
+                Layout.fillWidth: true
+                info: root.about
+            }
+        }
+
         // ---- confirmation for the destructive entries ----
         ColumnLayout {
             id: confirmView
             visible: !!root.confirm
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
             anchors.margins: 12
             spacing: 8
 

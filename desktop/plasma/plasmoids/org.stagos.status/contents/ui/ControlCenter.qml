@@ -31,6 +31,10 @@ Item {
     function isOn(part) {
         return !!(s[part] && s[part].on);
     }
+    // a part that failed (tool missing, no hardware) comes back as null or {"error": ...}
+    function works(part) {
+        return !!(s[part] && s[part].error === undefined);
+    }
 
     ColumnLayout {
         id: main
@@ -50,8 +54,8 @@ Item {
                 title: "Wi-Fi"
                 iconName: "network-wireless"
                 checked: cc.isOn("wifi")
-                available: cc.s.wifi !== null && cc.s.wifi !== undefined
-                subtitle: !cc.isOn("wifi") ? "Off" : (cc.s.wifi.ssid || "Not connected")
+                available: cc.works("wifi")
+                subtitle: !cc.works("wifi") ? "Unavailable" : !cc.isOn("wifi") ? "Off" : (cc.s.wifi.ssid || "Not connected")
                 onToggled: cc.plasmoidRoot.act("wifi toggle", "wifi")
             }
             Tile {
@@ -59,8 +63,8 @@ Item {
                 title: "Bluetooth"
                 iconName: "network-bluetooth"
                 checked: cc.isOn("bt")
-                available: !!(cc.s.bt && cc.s.bt.available)
-                subtitle: !cc.isOn("bt") ? "Off" : (cc.s.bt.connected > 0 ? cc.s.bt.connected + " connected" : "On")
+                available: cc.works("bt") && !!cc.s.bt.available
+                subtitle: !cc.works("bt") || !cc.s.bt.available ? "Unavailable" : !cc.isOn("bt") ? "Off" : (cc.s.bt.connected > 0 ? cc.s.bt.connected + " connected" : "On")
                 onToggled: cc.plasmoidRoot.act("bt toggle", "bt")
             }
             Tile {
@@ -68,8 +72,8 @@ Item {
                 title: "Do Not Disturb"
                 iconName: "notifications-disabled"
                 checked: cc.isOn("dnd")
-                available: cc.s.dnd !== null && cc.s.dnd !== undefined
-                subtitle: cc.isOn("dnd") ? "On" : "Off"
+                available: cc.works("dnd")
+                subtitle: !cc.works("dnd") ? "Unavailable" : cc.isOn("dnd") ? "On" : "Off"
                 onToggled: cc.plasmoidRoot.act("dnd toggle", "dnd")
             }
             Tile {
@@ -77,8 +81,8 @@ Item {
                 title: "Night Light"
                 iconName: "redshift-status-on"
                 checked: cc.isOn("night")
-                available: cc.s.night !== null && cc.s.night !== undefined
-                subtitle: !cc.isOn("night") ? "Off" : (cc.s.night.running ? "On  " + cc.s.night.temp + "K" : "On at sunset")
+                available: cc.works("night")
+                subtitle: !cc.works("night") ? "Unavailable" : !cc.isOn("night") ? "Off" : (cc.s.night.running ? "On  " + cc.s.night.temp + "K" : "On at sunset")
                 onToggled: cc.plasmoidRoot.act("night toggle", "night")
             }
         }
@@ -118,7 +122,7 @@ Item {
             }
             RowLayout {
                 Layout.fillWidth: true
-                visible: cc.s.vol !== null && cc.s.vol !== undefined
+                visible: !!(cc.s.vol && typeof cc.s.vol.volume === "number")
                 spacing: 8
                 Kirigami.Icon {
                     Layout.preferredWidth: 16
@@ -335,9 +339,10 @@ Item {
     Connections {
         target: cc.plasmoidRoot
         function onCcChanged() {
-            if (cc.s.vol && !vol.pressed && !volTimer.running)
+            // parts that failed come back as {"error": ...}: only numbers move the sliders
+            if (cc.s.vol && typeof cc.s.vol.volume === "number" && !vol.pressed && !volTimer.running)
                 vol.value = cc.s.vol.volume;
-            if (cc.s.bright && cc.s.bright.available && !bright.pressed && !brightTimer.running)
+            if (cc.s.bright && typeof cc.s.bright.percent === "number" && !bright.pressed && !brightTimer.running)
                 bright.value = cc.s.bright.percent;
         }
     }

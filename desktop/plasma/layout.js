@@ -30,25 +30,21 @@ bar.addWidget("org.kde.plasma.panelspacer");
 // plasma-nm, bluedevil). Notifications stays loaded (hidden) so notification popups keep working;
 // clipboard stays loaded (hidden) for its history and Meta+V. knownItems stops Plasma from adding the
 // dropped applets back later.
+// Plasma 6 keeps the tray's item lists in the tray applet's own [General] (verified with 6.7).
 var tray = bar.addWidget("org.kde.plasma.systemtray");
-var trayId = tray.readConfig("SystrayContainmentId");
-var trayBox = trayId ? desktopById(trayId) : null;
-if (trayBox) {
-    trayBox.currentConfigGroup = ["General"];
-    trayBox.writeConfig("extraItems", ["org.kde.plasma.notifications", "org.kde.plasma.clipboard",
-        "org.kde.plasma.devicenotifier", "org.kde.plasma.cameraindicator", "org.kde.plasma.manage-inputmethod",
-        "org.kde.plasma.keyboardlayout"]);
-    trayBox.writeConfig("hiddenItems", ["org.kde.plasma.notifications", "org.kde.plasma.clipboard"]);
-    trayBox.writeConfig("knownItems", ["org.kde.plasma.notifications", "org.kde.plasma.clipboard",
-        "org.kde.plasma.devicenotifier", "org.kde.plasma.cameraindicator", "org.kde.plasma.manage-inputmethod",
-        "org.kde.plasma.keyboardlayout", "org.kde.plasma.keyboardindicator", "org.kde.plasma.networkmanagement",
-        "org.kde.plasma.bluetooth", "org.kde.plasma.volume", "org.kde.plasma.battery", "org.kde.plasma.brightness",
-        "org.kde.plasma.mediacontroller", "org.kde.plasma.printmanager", "org.kde.plasma.vault", "org.kde.kdeconnect",
-        "org.kde.plasma.weather", "org.kde.plasma.diskquota", "org.kde.plasma.addons.katesessions", "org.kde.plasma.trash"]);
-    trayBox.reloadConfig();
-} else {
-    print("stagos layout: no system tray containment, stock tray applets left as they are");
-}
+tray.currentConfigGroup = ["General"];
+tray.writeConfig("extraItems", ["org.kde.plasma.notifications", "org.kde.plasma.clipboard",
+    "org.kde.plasma.devicenotifier", "org.kde.plasma.cameraindicator", "org.kde.plasma.manage-inputmethod",
+    "org.kde.plasma.keyboardlayout"]);
+tray.writeConfig("hiddenItems", ["org.kde.plasma.notifications", "org.kde.plasma.clipboard"]);
+tray.writeConfig("knownItems", ["org.kde.plasma.notifications", "org.kde.plasma.clipboard",
+    "org.kde.plasma.devicenotifier", "org.kde.plasma.cameraindicator", "org.kde.plasma.manage-inputmethod",
+    "org.kde.plasma.keyboardlayout", "org.kde.plasma.keyboardindicator", "org.kde.plasma.networkmanagement",
+    "org.kde.plasma.bluetooth", "org.kde.plasma.volume", "org.kde.plasma.battery", "org.kde.plasma.brightness",
+    "org.kde.plasma.mediacontroller", "org.kde.kscreen", "org.kde.plasma.printmanager", "org.kde.plasma.vault",
+    "org.kde.kdeconnect", "org.kde.plasma.weather", "org.kde.plasma.diskquota", "org.kde.plasma.addons.katesessions",
+    "org.kde.plasma.trash"]);
+tray.reloadConfig();
 // the readouts (org.stagos.status, p2): recon, stats, Stagbot, network, bluetooth, volume, battery, clock
 bar.addWidget("org.stagos.status");
 // END_STAGOS_WIDGET status
