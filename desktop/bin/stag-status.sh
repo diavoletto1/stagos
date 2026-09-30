@@ -2,6 +2,7 @@
 # StagOS top bar readouts for the org.stagos.status plasmoid (polled every few seconds).
 #   stag-status --json     one JSON line: {"v":1,"bar":{...},"clock_format":"...","fields":[...]}
 #   stag-status            the same fields as "id<TAB>text" lines (for a terminal)
+#   stag-status --layout   only the [bar] layout flags: {"stag_menu":true,"appmenu":true} (the STAG menu polls it)
 # Reads [bar] of ~/.config/stagos/desktop.conf on every call and emits only the enabled fields, so bar
 # toggles are live. Each field: id, group (recon|stats|stagbot|core), text, state (ok|off|hot), tooltip.
 # Fast by design (well under 100 ms): /proc and /sys through bash builtins, wpctl and busctl only when
@@ -14,8 +15,12 @@ set -uo pipefail
 mode=text
 case "${1:-}" in
   --json) mode=json ;;
+  --layout)
+    printf '{"stag_menu":%s,"appmenu":%s}\n' "$(stag_conf_bool bar stag_menu && echo true || echo false)" \
+      "$(stag_conf_bool bar appmenu && echo true || echo false)"
+    exit 0 ;;
   ''|--text) ;;
-  -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   *) echo "stag-status: unknown option $1 (see --help)" >&2; exit 2 ;;
 esac
 

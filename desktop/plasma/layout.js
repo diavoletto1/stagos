@@ -18,23 +18,42 @@ bar.currentConfigGroup = ["General"];
 bar.writeConfig("stagosRole", "bar");
 
 // STAGOS_WIDGET menu
-var menu = bar.addWidget("org.kde.plasma.kickoff");
-menu.currentConfigGroup = ["General"];
-menu.writeConfig("icon", "start-here-symbolic");
+// the STAG menu (org.stagos.menu, p2): about, settings, stag apps, session actions
+bar.addWidget("org.stagos.menu");
 // END_STAGOS_WIDGET menu
 bar.addWidget("org.kde.plasma.appmenu");
 bar.addWidget("org.kde.plasma.panelspacer");
 // STAGOS_WIDGET status
-bar.addWidget("org.kde.plasma.systemtray");
-var clock = bar.addWidget("org.kde.plasma.digitalclock");
-clock.currentConfigGroup = ["Appearance"];
-clock.writeConfig("showDate", true);
-clock.writeConfig("dateFormat", "custom");
-clock.writeConfig("customDateFormat", "ddd d MMM");
-clock.writeConfig("dateDisplayFormat", 1);
-clock.writeConfig("use24hFormat", 2);
+// Stock system tray for third-party tray icons only (Spotify, Obsidian, ...). Plasma's own network, volume,
+// battery, bluetooth, brightness and media applets are not loaded: the StagOS readouts and Control Center
+// replace them, and their keys/OSD/agents live in kded (audioshortcutsservice, mprisservice, powerdevil,
+// plasma-nm, bluedevil). Notifications stays loaded (hidden) so notification popups keep working;
+// clipboard stays loaded (hidden) for its history and Meta+V. knownItems stops Plasma from adding the
+// dropped applets back later.
+var tray = bar.addWidget("org.kde.plasma.systemtray");
+var trayId = tray.readConfig("SystrayContainmentId");
+var trayBox = trayId ? desktopById(trayId) : null;
+if (trayBox) {
+    trayBox.currentConfigGroup = ["General"];
+    trayBox.writeConfig("extraItems", ["org.kde.plasma.notifications", "org.kde.plasma.clipboard",
+        "org.kde.plasma.devicenotifier", "org.kde.plasma.cameraindicator", "org.kde.plasma.manage-inputmethod",
+        "org.kde.plasma.keyboardlayout"]);
+    trayBox.writeConfig("hiddenItems", ["org.kde.plasma.notifications", "org.kde.plasma.clipboard"]);
+    trayBox.writeConfig("knownItems", ["org.kde.plasma.notifications", "org.kde.plasma.clipboard",
+        "org.kde.plasma.devicenotifier", "org.kde.plasma.cameraindicator", "org.kde.plasma.manage-inputmethod",
+        "org.kde.plasma.keyboardlayout", "org.kde.plasma.keyboardindicator", "org.kde.plasma.networkmanagement",
+        "org.kde.plasma.bluetooth", "org.kde.plasma.volume", "org.kde.plasma.battery", "org.kde.plasma.brightness",
+        "org.kde.plasma.mediacontroller", "org.kde.plasma.printmanager", "org.kde.plasma.vault", "org.kde.kdeconnect",
+        "org.kde.plasma.weather", "org.kde.plasma.diskquota", "org.kde.plasma.addons.katesessions", "org.kde.plasma.trash"]);
+    trayBox.reloadConfig();
+} else {
+    print("stagos layout: no system tray containment, stock tray applets left as they are");
+}
+// the readouts (org.stagos.status, p2): recon, stats, Stagbot, network, bluetooth, volume, battery, clock
+bar.addWidget("org.stagos.status");
 // END_STAGOS_WIDGET status
 // STAGOS_WIDGET control
+// empty on purpose: the Control Center is org.stagos.status's popup (click the readouts)
 // END_STAGOS_WIDGET control
 
 // ---- dock: floating, fit to its icons, centered, hides only when a window overlaps it ----

@@ -15,6 +15,7 @@ stagos_dm_plasma() {
     kirigami qt6-declarative plasma5support spectacle kpackage qt6-tools qt6-wayland plasma-integration \
     polkit-kde-agent knighttime papirus-icon-theme inter-font ttf-jetbrains-mono
   dm_bins stag-session stag-plasma-apply
+  stagos_plasma_widgets
   if pacman -Q kde-gtk-config >/dev/null 2>&1; then
     warn "kde-gtk-config is installed: Plasma rewrites ~/.config/gtk-3.0 (the labwc GTK look) at every login: sudo pacman -Rns kde-gtk-config"
   fi
@@ -79,4 +80,25 @@ DBUS
   rm -f "$count"
   dm_note "plasma: log out, then 'stag-session plasma' (or labwc) picks the tty1 session; see README, Plasma"
   ok "plasma installed (default session: $(STAGOS_PLASMA_DATA="$data/stagos/plasma" "$HERE/desktop/bin/stag-session.sh" --status | sed -n 's/^next=//p'))"
+}
+
+# StagOS widgets (org.stagos.menu, org.stagos.status) and the shell side they run (stag-ctl, stag-status,
+# stag-lib; playerctl for now playing, wl-copy for "Ask Stagbot"). Plasmoids go to
+# ~/.local/share/plasma/plasmoids via kpackagetool6, reinstalled only when their content changed.
+stagos_plasma_widgets() {
+  dm_pkgs playerctl wl-clipboard
+  dm_bins stag-lib stag-ctl stag-status
+  local src="$HERE/desktop/plasma/plasmoids" dst="${XDG_DATA_HOME:-$HOME/.local/share}/plasma/plasmoids" p id
+  for p in "$src"/*/; do
+    p="${p%/}"; id="${p##*/}"
+    if dm_dry; then log "[dry] would install plasmoid $id (kpackagetool6)"; continue; fi
+    if ! have kpackagetool6; then warn "kpackagetool6 missing: plasmoid $id not installed"; continue; fi
+    if [[ -d "$dst/$id" ]]; then
+      diff -rq "$p" "$dst/$id" >/dev/null 2>&1 && continue
+      kpackagetool6 --type Plasma/Applet --upgrade "$p" >/dev/null || { warn "plasmoid $id: kpackagetool6 --upgrade failed"; continue; }
+    else
+      kpackagetool6 --type Plasma/Applet --install "$p" >/dev/null || { warn "plasmoid $id: kpackagetool6 --install failed"; continue; }
+    fi
+    DM_CHANGED=$((DM_CHANGED + 1)); log "plasmoid $id installed"
+  done
 }
