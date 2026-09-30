@@ -189,7 +189,7 @@ kscreen-doctor; change it later in System Settings > Display.
   (session), `STAGOS_SYS STAGOS_PROC STAGOS_CACHE STAGOS_QDBUS` (stag-ctl, stag-status).
 - Visual smoke in rootless podman: `kwin_wayland --virtual` + spectacle hangs there, so the smoke drops the file
   capability (`setcap -r /usr/bin/kwin_wayland`), runs `Xvfb`, `kwin_wayland --x11-display` and plasmashell inside
-  `dbus-run-session`, and grabs the X root with `xwd` (`test/stag-widgets-smoke.sh`).
+  `dbus-run-session`, and grabs the X root with `xwd` (`test/plasma-smoke.sh`, run by `test/stag-widgets-container.sh`).
 
 ### Testing
 

@@ -129,6 +129,7 @@ widget_checks() {
   t "generated layout places org.stagos.menu + org.stagos.status" bash -c "L='$D/plasma/look-and-feel/org.stagos.desktop/contents/layouts/org.kde.plasma.desktop-layout.js'; grep -q 'org.stagos.menu' \"\$L\" && grep -q 'org.stagos.status' \"\$L\""
   t "stag-status --json on the installed system parses" bash -c "stag-status --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"v\"] == 1 and d[\"fields\"]'"
   t "stag-ctl about on the installed system parses" bash -c "stag-ctl about | python3 -c 'import json,sys; json.load(sys.stdin)'"
+  t "STAG menu shows StagOS Settings (stag-ctl about finds /usr/local/bin/stag-settings)" bash -c "stag-ctl about | python3 -c 'import json,sys; assert json.load(sys.stdin)[\"settings\"] is True'"
   # qmllint: a report, not a gate (Plasma's QML modules are not all visible to qmllint outside plasmashell)
   q=/usr/lib/qt6/bin/qmllint
   if [[ -x "$q" ]]; then
