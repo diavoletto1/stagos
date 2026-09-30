@@ -121,5 +121,11 @@ check "foot never gets bare Ctrl from Cmd" bash -c "! sed -n '/^\[foot\]/,\$p' '
 check "no em dashes in tracked text" bash -c "cd '$ROOT' && ! grep -rlI --exclude-dir=.git \$'\xe2\x80\x94' . | grep -q ."
 check "no CDN/external urls in desktop css" bash -c "! grep -rE 'https?://' '$ROOT/desktop/swaync' '$ROOT/desktop/swayosd' '$ROOT/desktop/nwg-dock' '$ROOT/desktop/waybar/style.css'"
 
+# ---- snapshots module: backup.env must survive sourcing with hostile repo strings ----
+sandbox
+BE=$(bash "$ROOT/test/fixtures/snapshots-env.sh" "$ROOT" "$HOME")
+check "backup.env round-trips a repo with dollar, quote, backtick, space" test "$BE" = 'rest:https://u:p$w"x`id`@h/a b'
+check "backup.env is mode 600" test "$(stat -c %a "$HOME/.config/stagos/backup.env")" = 600
+
 echo; echo "desktop-scripts: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

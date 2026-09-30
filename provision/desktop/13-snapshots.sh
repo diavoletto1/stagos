@@ -26,11 +26,12 @@ stagos_dm_snapshots() {
     warn "root is $fs (not btrfs) and STAGOS_RESTIC_REPO is unset in config/local.conf: restic installed, timer not enabled"
     return 0
   fi
-  dm_write "$(dm_cfg)/stagos/backup.env" 600 <<EOF2
-STAGOS_RESTIC_REPO="$repo"
-STAGOS_RESTIC_PASSWORD_FILE="${STAGOS_RESTIC_PASSWORD_FILE:-$HOME/.config/stagos/restic.pass}"
-STAGOS_RESTIC_PATHS="${STAGOS_RESTIC_PATHS:-$HOME}"
-EOF2
+  # %q keeps repo URLs with $ " ` or spaces (rest:https://user:pa$$@host) intact when backup.env is sourced
+  {
+    printf 'STAGOS_RESTIC_REPO=%q\n' "$repo"
+    printf 'STAGOS_RESTIC_PASSWORD_FILE=%q\n' "${STAGOS_RESTIC_PASSWORD_FILE:-$HOME/.config/stagos/restic.pass}"
+    printf 'STAGOS_RESTIC_PATHS=%q\n' "${STAGOS_RESTIC_PATHS:-$HOME}"
+  } | dm_write "$(dm_cfg)/stagos/backup.env" 600
   # the backup script is a user command; the units run it from ~/.local/bin
   dm_install "$HERE/desktop/bin/stagos-backup.sh" "$HOME/.local/bin/stagos-backup" 755
   dm_install "$HERE/desktop/systemd/stagos-restic.service" "$(dm_cfg)/systemd/user/stagos-restic.service" 644
