@@ -124,6 +124,7 @@ check "no CDN/external urls in desktop css" bash -c "! grep -rE 'https?://' '$RO
 # ---- snapshots module: backup.env must survive sourcing with hostile repo strings ----
 sandbox
 BE=$(bash "$ROOT/test/fixtures/snapshots-env.sh" "$ROOT" "$HOME")
+# shellcheck disable=SC2016  # literal $ and backtick on purpose
 check "backup.env round-trips a repo with dollar, quote, backtick, space" test "$BE" = 'rest:https://u:p$w"x`id`@h/a b'
 check "backup.env is mode 600" test "$(stat -c %a "$HOME/.config/stagos/backup.env")" = 600
 
