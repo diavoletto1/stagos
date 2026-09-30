@@ -4,14 +4,14 @@ import org.kde.plasma.components as PC3
 import org.kde.kirigami as Kirigami
 import "palette.js" as Pal
 
-// Control Center toggle tile: icon disc (red when on), title, one line of state. Click = toggle.
+// Control Center toggle tile: icon disc (red when checked), title, one line of state. Click = toggle.
 Rectangle {
     id: tile
 
     property string title: ""
     property string subtitle: ""
     property string iconName: ""
-    property bool on: false
+    property bool checked: false
     property bool available: true
     signal toggled()
 
@@ -31,7 +31,7 @@ Rectangle {
             Layout.preferredWidth: 28
             Layout.preferredHeight: 28
             radius: 14
-            color: tile.on ? Pal.accent : Pal.hairline
+            color: tile.checked ? Pal.accent : Pal.hairline
 
             Kirigami.Icon {
                 anchors.centerIn: parent

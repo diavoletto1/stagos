@@ -28,7 +28,7 @@ Item {
     Layout.minimumHeight: Layout.preferredHeight
     Layout.maximumHeight: Layout.preferredHeight
 
-    function on(part) {
+    function isOn(part) {
         return !!(s[part] && s[part].on);
     }
 
@@ -49,36 +49,36 @@ Item {
                 Layout.fillWidth: true
                 title: "Wi-Fi"
                 iconName: "network-wireless"
-                on: cc.on("wifi")
+                checked: cc.isOn("wifi")
                 available: cc.s.wifi !== null && cc.s.wifi !== undefined
-                subtitle: !cc.on("wifi") ? "Off" : (cc.s.wifi.ssid || "Not connected")
+                subtitle: !cc.isOn("wifi") ? "Off" : (cc.s.wifi.ssid || "Not connected")
                 onToggled: cc.plasmoidRoot.act("wifi toggle", "wifi")
             }
             Tile {
                 Layout.fillWidth: true
                 title: "Bluetooth"
                 iconName: "network-bluetooth"
-                on: cc.on("bt")
+                checked: cc.isOn("bt")
                 available: !!(cc.s.bt && cc.s.bt.available)
-                subtitle: !cc.on("bt") ? "Off" : (cc.s.bt.connected > 0 ? cc.s.bt.connected + " connected" : "On")
+                subtitle: !cc.isOn("bt") ? "Off" : (cc.s.bt.connected > 0 ? cc.s.bt.connected + " connected" : "On")
                 onToggled: cc.plasmoidRoot.act("bt toggle", "bt")
             }
             Tile {
                 Layout.fillWidth: true
                 title: "Do Not Disturb"
                 iconName: "notifications-disabled"
-                on: cc.on("dnd")
+                checked: cc.isOn("dnd")
                 available: cc.s.dnd !== null && cc.s.dnd !== undefined
-                subtitle: cc.on("dnd") ? "On" : "Off"
+                subtitle: cc.isOn("dnd") ? "On" : "Off"
                 onToggled: cc.plasmoidRoot.act("dnd toggle", "dnd")
             }
             Tile {
                 Layout.fillWidth: true
                 title: "Night Light"
                 iconName: "redshift-status-on"
-                on: cc.on("night")
+                checked: cc.isOn("night")
                 available: cc.s.night !== null && cc.s.night !== undefined
-                subtitle: !cc.on("night") ? "Off" : (cc.s.night.running ? "On  " + cc.s.night.temp + "K" : "On at sunset")
+                subtitle: !cc.isOn("night") ? "Off" : (cc.s.night.running ? "On  " + cc.s.night.temp + "K" : "On at sunset")
                 onToggled: cc.plasmoidRoot.act("night toggle", "night")
             }
         }
@@ -264,19 +264,20 @@ Item {
                 Repeater {
                     model: cc.b.services || []
                     delegate: RowLayout {
+                        id: svc
                         required property var modelData
                         spacing: 4
                         Rectangle {
                             Layout.preferredWidth: 6
                             Layout.preferredHeight: 6
                             radius: 3
-                            color: modelData.up ? Pal.text : Pal.accent
+                            color: svc.modelData.up ? Pal.text : Pal.accent
                         }
                         PC3.Label {
-                            text: modelData.name
+                            text: svc.modelData.name
                             font.family: Pal.mono
                             font.pixelSize: 11
-                            color: modelData.up ? Pal.text : Pal.accent
+                            color: svc.modelData.up ? Pal.text : Pal.accent
                             textFormat: Text.PlainText
                         }
                     }

@@ -36,19 +36,20 @@ Rectangle {
                 ["Battery", panel.bat.present ? panel.bat.capacity + "%  health " + panel.bat.health + "%" + (panel.bat.cycles ? "  " + panel.bat.cycles + " cycles" : "") : "none"]
             ]
             delegate: RowLayout {
+                id: aboutRow
                 required property var modelData
                 Layout.fillWidth: true
                 spacing: 10
                 PC3.Label {
                     Layout.preferredWidth: 56
-                    text: modelData[0]
+                    text: aboutRow.modelData[0]
                     font.family: Pal.ui
                     font.pixelSize: 11
                     color: Pal.dim
                 }
                 PC3.Label {
                     Layout.fillWidth: true
-                    text: modelData[1]
+                    text: aboutRow.modelData[1]
                     font.family: Pal.mono
                     font.pixelSize: 11
                     color: Pal.text
