@@ -1,0 +1,110 @@
+#!/bin/bash
+# fixture: stateful fakes for the desktop tools behind stag-ctl / stag-status. Symlink it under the tool's
+# name (nmcli, bluetoothctl, wpctl, brightnessctl, playerctl, qdbus6, curl, kreadconfig6, kwriteconfig6,
+# busctl, tailscale, gpspipe, pgrep, pkill, rfkill, setsid, foot, konsole, gtk-launch, chromium, wl-copy,
+# xdg-open, loginctl, systemctl, stag-session, kismet) in a dir at the front of PATH.
+# Every call appends "name args" to $FAKE_LOG. State lives in $FAKE_DIR/state/<key> (see st/put below);
+# test/fixtures/fake-desktop.sh has helpers to set it up. $FAKE_DIR/<name>.rc forces an exit code.
+name="$(basename "$0")"
+echo "$name $*" >> "${FAKE_LOG:?}"
+S="${FAKE_DIR:?}/state"; mkdir -p "$S"
+st() { cat "$S/$1" 2>/dev/null || printf '%s' "${2:-}"; }
+put() { printf '%s' "$2" > "$S/$1"; }
+[ -f "$FAKE_DIR/$name.rc" ] && exit "$(cat "$FAKE_DIR/$name.rc")"
+
+# kconfig store: $FAKE_DIR/kconfig/<file>, lines "group|key=value"
+kc_args() {
+  KF="" KG="" KK="" KDEL=0 KDEF="" KV=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --file) KF="$2"; shift ;; --group) KG="$2"; shift ;; --key) KK="$2"; shift ;;
+      --default) KDEF="$2"; shift ;; --type) shift ;; --delete) KDEL=1 ;; --notify) ;;
+      --) shift; KV="$1" ;; *) KV="$1" ;;
+    esac
+    shift
+  done
+  mkdir -p "$FAKE_DIR/kconfig"; KP="$FAKE_DIR/kconfig/$KF"; touch "$KP"
+}
+kc_get() { grep -F "$1|$2=" "$FAKE_DIR/kconfig/$3" 2>/dev/null | tail -1 | cut -d= -f2-; }
+
+case "$name" in
+  nmcli)
+    case "$*" in
+      "radio wifi") [ "$(st wifi on)" = on ] && echo enabled || echo disabled ;;
+      "radio wifi on") put wifi on ;;
+      "radio wifi off") put wifi off ;;
+      *"ACTIVE,SSID,SIGNAL device wifi list"*) [ "$(st wifi on)" = on ] && printf 'yes:%s:72\nno:Neighbour:30\n' "$(st ssid HomeNet)" ;;
+      *"NAME,TYPE connection show --active"*) [ "$(st wifi on)" = on ] && printf '%s:802-11-wireless\n' "$(st ssid HomeNet)" ;;
+    esac ;;
+  bluetoothctl)
+    case "$*" in
+      show) [ "$(st bt_adapter yes)" = yes ] || { echo "No default controller available"; exit 1; }
+            printf 'Controller 00:11:22:33:44:55 (public)\n\tName: stagpad\n\tPowered: %s\n' "$(st bt no)" ;;
+      "power on") put bt yes ;;
+      "power off") put bt no ;;
+      "devices Connected") [ "$(st bt no)" = yes ] && [ "$(st bt_conn 0)" -gt 0 ] && echo "Device AA:BB:CC:DD:EE:FF Headphones" ;;
+    esac ;;
+  busctl)
+    [[ "$*" == *"org.bluez.Adapter1 Powered"* ]] && { [ "$(st bt no)" = yes ] && echo "b true" || echo "b false"; } ;;
+  wpctl)
+    case "$1" in
+      get-volume) [ "$(st sink yes)" = yes ] || exit 1
+                  v="$(st vol 40)"; printf 'Volume: %d.%02d%s\n' $((v / 100)) $((v % 100)) "$([ "$(st muted 0)" = 1 ] && echo ' [MUTED]')" ;;
+      set-volume) for a; do case "$a" in *%) put vol "${a%\%}" ;; esac; done ;;
+      set-mute) case "$3" in toggle) if [ "$(st muted 0)" = 1 ]; then put muted 0; else put muted 1; fi ;; *) put muted "$3" ;; esac ;;
+    esac ;;
+  brightnessctl)
+    for a; do case "$a" in *%) b="${a%\%}"; [ -n "${FAKE_BL:-}" ] && echo $((b * $(cat "$FAKE_BL/max_brightness") / 100)) > "$FAKE_BL/brightness" ;; esac; done ;;
+  playerctl)
+    [ "$(st player none)" = none ] && { echo "No players found" >&2; exit 1; }
+    case "$1" in
+      metadata) printf '%s\tspotify\t%s\t%s\n' "$(st pstatus Playing)" "$(st title "Track $(st track 1)")" "$(st artist "The Band")" ;;
+      play-pause) if [ "$(st pstatus Playing)" = Playing ]; then put pstatus Paused; else put pstatus Playing; fi ;;
+      next) put track $(( $(st track 1) + 1 )) ;;
+      previous) put track $(( $(st track 1) - 1 )) ;;
+    esac ;;
+  qdbus6)
+    case "$1 $2" in
+      "org.kde.KWin /KWin") [ "$(st plasma no)" = yes ] || exit 1 ;;
+      "org.kde.KWin /org/kde/KWin/NightLight")
+        [ "$(st plasma no)" = yes ] || exit 1
+        case "$3" in
+          *.enabled) [ "$(kc_get NightColor Active kwinrc)" = true ] && echo true || echo false ;;
+          *.running) [ "$(kc_get NightColor Active kwinrc)" = true ] && [ "$(st night_now yes)" = yes ] && echo true || echo false ;;
+          *.currentTemperature) [ "$(kc_get NightColor Active kwinrc)" = true ] && echo 4500 || echo 6500 ;;
+        esac ;;
+      "org.kde.ScreenBrightness /org/kde/ScreenBrightness")
+        [ "$(st powerdevil no)" = yes ] || exit 1; echo display0 ;;
+      "org.kde.ScreenBrightness /org/kde/ScreenBrightness/display0")
+        [ "$(st powerdevil no)" = yes ] || exit 1
+        case "$3" in
+          *.MaxBrightness) cat "${FAKE_BL:?}/max_brightness" ;;
+          *.SetBrightness) echo "$4" > "$FAKE_BL/brightness" ;;
+        esac ;;
+      "org.kde.Shutdown /Shutdown") [ "$(st plasma no)" = yes ] || exit 1 ;;
+      *) exit 1 ;;
+    esac ;;
+  kreadconfig6)
+    kc_args "$@"; v="$(kc_get "$KG" "$KK" "$KF")"; printf '%s\n' "${v:-$KDEF}" ;;
+  kwriteconfig6)
+    kc_args "$@"
+    grep -vF "$KG|$KK=" "$KP" > "$KP.tmp"; mv "$KP.tmp" "$KP"
+    [ "$KDEL" = 1 ] || echo "$KG|$KK=$KV" >> "$KP" ;;
+  curl)
+    url="${*: -1}"; [ -n "${FAKE_CURL_SLEEP:-}" ] && sleep "$FAKE_CURL_SLEEP"
+    code="$(awk -v u="$url" '$1 == u {print $2}' "$FAKE_DIR/curl.codes" 2>/dev/null)"
+    printf '%s' "${code:-200}"; [ "${code:-200}" = 000 ] && exit 7 ;;
+  tailscale)
+    case "$1" in status) [ "$(st ts up)" = up ] ;; ip) echo 100.64.0.7 ;; esac ;;
+  gpspipe)
+    printf '{"class":"VERSION"}\n{"class":"TPV","mode":%s}\n' "$(st gps 3)" ;;
+  pgrep)
+    [ "${*: -1}" = kismet ] && [ "$(st kismet no)" = yes ] ;;
+  pkill)
+    [ "${*: -1}" = kismet ] && put kismet no ;;
+  setsid)
+    [ "$1" = -f ] && shift; "$@" ;;
+  kismet) put kismet yes ;;
+  wl-copy) cat > "$FAKE_DIR/clipboard" ;;
+  *) : ;;   # foot konsole gtk-launch chromium xdg-open loginctl systemctl stag-session rfkill: log only
+esac

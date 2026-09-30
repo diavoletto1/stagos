@@ -6,7 +6,9 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 command -v gpsfake >/dev/null || { echo "gpsfake missing (gpsd pkg)"; exit 1; }
 nmea=$(mktemp --suffix=.nmea)
-trap 'rm -f "$nmea"; kill "${gf:-0}" 2>/dev/null || true' EXIT
+shim=$(mktemp -d)   # the waybar scripts source stag-lib from PATH
+ln -s "$PWD/desktop/bin/stag-lib.sh" "$shim/stag-lib"
+trap 'rm -rf "$nmea" "$shim"; kill "${gf:-0}" 2>/dev/null || true' EXIT
 python3 - "$nmea" <<'PY'
 import sys
 def ck(s):
@@ -23,6 +25,6 @@ open(sys.argv[1], "w").write("\r\n".join(out) + "\r\n")
 PY
 gpsfake -q -c 0.2 -P 2948 "$nmea" >/dev/null 2>&1 & gf=$!
 sleep 3
-got=$(STAGOS_GPSD=localhost:2948 ./desktop/waybar/scripts/gps.sh)
+got=$(PATH="$shim:$PATH" STAGOS_GPSD=localhost:2948 ./desktop/waybar/scripts/gps.sh)
 echo "$got"
 if grep -q '"GPS 3D"' <<<"$got"; then echo "gps mock: PASS"; else echo "gps mock: FAIL"; exit 1; fi
