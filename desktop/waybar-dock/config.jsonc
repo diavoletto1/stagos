@@ -12,7 +12,7 @@
   "margin-bottom": 10,
   "modules-center": [
     "custom/apps",
-    "custom/term", "custom/web", "custom/files", "custom/notes", "custom/code", "custom/music", "custom/claude",
+    "custom/term", "custom/web", "custom/files", "custom/notes", "custom/music", "custom/claude",
     "custom/sep",
     "custom/kismet", "custom/shark", "custom/mon"
   ],
@@ -21,7 +21,6 @@
   "custom/web":    { "format": "WEB",    "on-click": "chromium",                "tooltip-format": "chromium" },
   "custom/files":  { "format": "FILES",  "on-click": "thunar",                  "tooltip-format": "files" },
   "custom/notes":  { "format": "NOTES",  "on-click": "obsidian",                "tooltip-format": "obsidian" },
-  "custom/code":   { "format": "CODE",   "on-click": "code",                    "tooltip-format": "vs code" },
   "custom/music":  { "format": "MUSIC",  "on-click": "spotify-launcher",        "tooltip-format": "spotify" },
   "custom/claude": { "format": "CLAUDE", "on-click": "gtk-launch claude",       "tooltip-format": "claude.ai" },
   "custom/sep":    { "format": "|",      "tooltip": false },
