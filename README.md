@@ -116,7 +116,7 @@ manager, no SDDM): the LUKS passphrase stays the only login, tty1 autologin then
   a floating dock at the bottom center that hides only when a window overlaps it, launchers from
   `[dock] launchers` in `~/.config/stagos/desktop.conf` (`|` = separator, missing apps skipped); no desktop icons.
 - **KWin**: blur for panels/popups, no wobbly/magic lamp/translucency, animations at 0.7, drag to an edge tiles,
-  Overview on **Meta+W** / **Ctrl+Up** / the 4-finger swipe, 4 desktops, click to focus, and every dock app
+  Overview on **Meta+Tab** / **Ctrl+Up** / the 4-finger swipe, 4 desktops, click to focus, and every dock app
   remembers its window position and size (one KWin rule per app).
 - **Keys**: **Meta+Space** KRunner (Spotlight), **Meta+L** lock, **Print** region shot, Super+Shift+3/4/5 like labwc,
   Super+Return foot, Super+E files, Super+Up/Down maximize/minimize, Ctrl+Alt+Left/Right desktops.

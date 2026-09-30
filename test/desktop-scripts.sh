@@ -185,7 +185,7 @@ check "apply: keeps Jack's rules, drops stale stagos-*" grep -q -- '--group Gene
 check "apply: Plasma down -> no D-Bus calls beyond the probe" bash -c "! grep -q 'evaluateScript\|reconfigure\|loadLookAndFeel' '$FAKE_LOG'"
 check "apply: no base look without --base" bash -c "! grep -q 'LookAndFeelPackage' '$FAKE_LOG'"
 : > "$FAKE_LOG"; stag-plasma-apply --base --quiet >/dev/null 2>&1
-check "apply --base: global theme + colors + shortcuts" bash -c "grep -q -- '--key LookAndFeelPackage -- org.stagos.desktop' '$FAKE_LOG' && grep -q -- '--group Colors:Window --key BackgroundNormal -- 10,10,10' '$FAKE_LOG' && grep -q -- '--group Colors:Header --group Inactive' '$FAKE_LOG' && grep -q -- \"--group kwin --key Overview -- Meta+W\"\$'\t'\"Ctrl+Up\" '$FAKE_LOG'"
+check "apply --base: global theme + colors + shortcuts" bash -c "grep -q -- '--key LookAndFeelPackage -- org.stagos.desktop' '$FAKE_LOG' && grep -q -- '--group Colors:Window --key BackgroundNormal -- 10,10,10' '$FAKE_LOG' && grep -q -- '--group Colors:Header --group Inactive' '$FAKE_LOG' && grep -q -- \"--group kwin --key Overview -- Meta+Tab\"\$'\t'\"Ctrl+Up\" '$FAKE_LOG' && grep -q -- '--group plasmashell --key next activity -- none,' '$FAKE_LOG'"
 check "apply --base: buttons on the right" grep -q -- '--key ButtonsOnRight -- IAX' "$FAKE_LOG"
 : > "$FAKE_LOG"; stag-plasma-apply --base --dry-run >/dev/null 2>&1
 check "apply --dry-run writes nothing" bash -c "! grep -q '^kwriteconfig6' '$FAKE_LOG'"
