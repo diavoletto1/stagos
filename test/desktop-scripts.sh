@@ -109,6 +109,114 @@ sandbox cliphist fuzzel wl-copy
 stag-clip pick >/dev/null 2>&1
 check "clip pick pipes cliphist->fuzzel->wl-copy" bash -c "grep -q '^cliphist list' '$FAKE_LOG' && grep -q '^cliphist decode' '$FAKE_LOG' && grep -q '^wl-copy' '$FAKE_LOG'"
 
+# ---- stag-session (tty1 session picker) ----
+FS="$ROOT/test/fixtures/bin/fake-session"
+session_sandbox() { # fresh HOME + fake startplasma/labwc; $1 = 1 when Plasma is "installed"
+  sandbox
+  mkdir -p "$T/sess"; rm -f "$T/sess/"*
+  ln -s "$FS" "$T/sess/startplasma-wayland"; ln -s "$FS" "$T/bin/labwc"
+  export STAGOS_STARTPLASMA="$T/sess/startplasma-wayland" STAGOS_LABWC=labwc
+  export STAGOS_PLASMA_DBUS_WRAPPER="$ROOT/test/fixtures/bin/plasma-dbus-run-session-if-needed"
+  export STAGOS_PLASMA_DATA="$ROOT/desktop/plasma"
+  [ "${1:-1}" = 1 ] || rm -f "$T/sess/startplasma-wayland"
+}
+session_sandbox 1
+check "session: default is plasma without desktop.conf" test "$(stag-session --status | head -1)" = default=plasma
+stag-session start >/dev/null 2>&1
+check "session: start runs startplasma through the dbus wrapper" bash -c "grep -q '^dbus-wrapper $T/sess/startplasma-wayland' '$FAKE_LOG' && grep -q '^startplasma-wayland' '$FAKE_LOG'"
+check "session: clean plasma exit starts no labwc" bash -c "! grep -q '^labwc' '$FAKE_LOG'"
+: > "$FAKE_LOG"; QT_QPA_PLATFORMTHEME=qt6ct GTK_THEME=Adwaita:dark stag-session start >/dev/null 2>&1
+check "session: qt6ct never reaches Plasma" grep -q '^startplasma-wayland .*QT_QPA_PLATFORMTHEME= ' "$FAKE_LOG"
+echo 1 > "$FAKE_DIR/startplasma-wayland.rc"; : > "$FAKE_LOG"
+stag-session start >/dev/null 2>&1
+check "session: 2 fast plasma failures -> labwc" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 2 && grep -q '^labwc' '$FAKE_LOG'"
+check "session: fallback logged" grep -q 'FALLBACK' "$HOME/.cache/stagos/session.log"
+check "session: status shows the fallback" bash -c "stag-session --status | grep -q '^next=labwc (plasma failed 2x'"
+: > "$FAKE_LOG"; stag-session start >/dev/null 2>&1
+check "session: fallback sticks (no plasma retry)" bash -c "! grep -q '^startplasma-wayland' '$FAKE_LOG' && grep -q '^labwc' '$FAKE_LOG'"
+stag-session plasma >/dev/null
+check "session: 'stag-session plasma' clears the fallback" bash -c "stag-session --status | grep -qx 'fails=0'"
+: > "$FAKE_LOG"; STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1
+check "session: a slow plasma crash is not a fast failure" bash -c "grep -q '^startplasma-wayland' '$FAKE_LOG' && ! grep -q '^labwc' '$FAKE_LOG' && stag-session --status | grep -qx 'fails=0'"
+cp "$ROOT/test/fixtures/plasma-desktop.conf" "$HOME/dc.conf"; export STAGOS_DESKTOP_CONF="$HOME/dc.conf"
+stag-session labwc >/dev/null
+check "session: labwc sets [session] default=labwc" test "$(stag-session --status | head -1)" = default=labwc
+check "session: desktop.conf keeps comments and other sections" bash -c "grep -q '^# keep this comment' '$HOME/dc.conf' && grep -q '^blur=false' '$HOME/dc.conf' && test \$(grep -c '^default=' '$HOME/dc.conf') -eq 1"
+: > "$FAKE_LOG"; stag-session start >/dev/null 2>&1
+check "session: default labwc starts labwc only" bash -c "grep -q '^labwc' '$FAKE_LOG' && ! grep -q '^startplasma' '$FAKE_LOG'"
+rm -f "$HOME/dc2.conf"; STAGOS_DESKTOP_CONF="$HOME/dc2.conf" stag-session plasma >/dev/null
+check "session: creates desktop.conf with a [session] section" bash -c "grep -q '^\[session\]' '$HOME/dc2.conf' && grep -q '^default=plasma' '$HOME/dc2.conf'"
+unset STAGOS_DESKTOP_CONF
+session_sandbox 0
+check "session: no Plasma installed -> labwc" bash -c "stag-session --status | grep -q '^next=labwc (plasma not installed)'"
+stag-session start >/dev/null 2>&1
+check "session: no Plasma installed starts labwc" grep -q '^labwc' "$FAKE_LOG"
+check "session: rejects junk" bash -c "! stag-session bogus"
+# notify-daemon: one owner for org.freedesktop.Notifications per session
+session_sandbox 1
+ln -s "$FS" "$T/bin/swaync"; ln -s "$FS" "$T/bin/plasma_waitforname"; export STAGOS_PLASMA_WAITFORNAME="$T/bin/plasma_waitforname"
+XDG_CURRENT_DESKTOP=KDE stag-session notify-daemon
+check "notify: Plasma waits for plasmashell" grep -q '^plasma_waitforname org.freedesktop.Notifications' "$FAKE_LOG"
+: > "$FAKE_LOG"; XDG_CURRENT_DESKTOP=labwc:wlroots stag-session notify-daemon
+check "notify: labwc gets swaync" grep -q '^swaync' "$FAKE_LOG"
+unset STAGOS_PLASMA_WAITFORNAME STAGOS_STARTPLASMA STAGOS_LABWC STAGOS_PLASMA_DBUS_WRAPPER
+
+# ---- stag-plasma-apply (kwriteconfig6/kreadconfig6/qdbus6 faked) ----
+apply_sandbox() {
+  sandbox kwriteconfig6 kreadconfig6 qdbus6
+  export STAGOS_PLASMA_DATA="$ROOT/desktop/plasma" STAGOS_DESKTOP_CONF="$HOME/dc.conf" XDG_DATA_DIRS="$T/share"
+  cp "$ROOT/test/fixtures/plasma-desktop.conf" "$HOME/dc.conf"
+  mkdir -p "$T/share/applications" "$HOME/.local/share/applications"
+  printf '[Desktop Entry]\nName=Foot\nExec=foot\n' > "$T/share/applications/foot.desktop"
+  cp "$ROOT/desktop/share/stag-mon.desktop" "$HOME/.local/share/applications/"
+}
+LAY="$T/home/.local/share/plasma/look-and-feel/org.stagos.desktop/contents/layouts/org.kde.plasma.desktop-layout.js"
+apply_sandbox; echo 1 > "$FAKE_DIR/qdbus6.rc"; echo 'mine,stagos-old' > "$FAKE_DIR/kreadconfig6.out"
+out="$(stag-plasma-apply 2>&1)"
+check "apply: missing launcher skipped with a warning" grep -q 'skipping missing-app.desktop' <<< "$out"
+check "apply: odd launcher name ignored" grep -q "ignoring odd launcher name 'bad name.desktop'" <<< "$out"
+check "apply: blur=false -> kwinrc" grep -q -- '--file kwinrc --group Plugins --key blurEnabled -- false' "$FAKE_LOG"
+check "apply: bad animation_factor -> 0.7" grep -q -- '--key AnimationDurationFactor -- 0.7' "$FAKE_LOG"
+check "apply: layout has both dock groups" grep -q 'var STAGOS_DOCK = \[\[{id: "foot.desktop", path: "'"$T"'/share/applications/foot.desktop"}\],\[{id: "stag-mon.desktop"' "$LAY"
+check "apply: layout keeps the p2 widget slots" bash -c "for w in menu status control; do grep -qx \"// STAGOS_WIDGET \$w\" '$LAY' && grep -qx \"// END_STAGOS_WIDGET \$w\" '$LAY' || exit 1; done"
+check "apply: remember rule per app, class from StartupWMClass" grep -q -- '--group stagos-stag-mon --key wmclass -- (?i)^stag-mon\$' "$FAKE_LOG"
+check "apply: rule remembers position" grep -q -- '--group stagos-foot --key positionrule -- 4' "$FAKE_LOG"
+check "apply: keeps Jack's rules, drops stale stagos-*" grep -q -- '--group General --key rules -- mine,stagos-foot,stagos-stag-mon' "$FAKE_LOG"
+check "apply: Plasma down -> no D-Bus calls beyond the probe" bash -c "! grep -q 'evaluateScript\|reconfigure\|loadLookAndFeel' '$FAKE_LOG'"
+check "apply: no base look without --base" bash -c "! grep -q 'LookAndFeelPackage' '$FAKE_LOG'"
+: > "$FAKE_LOG"; stag-plasma-apply --base --quiet >/dev/null 2>&1
+check "apply --base: global theme + colors + shortcuts" bash -c "grep -q -- '--key LookAndFeelPackage -- org.stagos.desktop' '$FAKE_LOG' && grep -q -- '--group Colors:Window --key BackgroundNormal -- 10,10,10' '$FAKE_LOG' && grep -q -- '--group Colors:Header --group Inactive' '$FAKE_LOG' && grep -q -- \"--group kwin --key Overview -- Meta+W\"\$'\t'\"Ctrl+Up\" '$FAKE_LOG'"
+check "apply --base: buttons on the right" grep -q -- '--key ButtonsOnRight -- IAX' "$FAKE_LOG"
+: > "$FAKE_LOG"; stag-plasma-apply --base --dry-run >/dev/null 2>&1
+check "apply --dry-run writes nothing" bash -c "! grep -q '^kwriteconfig6' '$FAKE_LOG'"
+# Plasma running: first run loads the layout, later runs only sync the dock
+apply_sandbox; echo 'stagos-layout: no' > "$FAKE_DIR/qdbus6.out"
+stag-plasma-apply --quiet >/dev/null 2>&1
+check "apply: first run with Plasma loads the StagOS layout" grep -q 'loadLookAndFeelDefaultLayout org.stagos.desktop' "$FAKE_LOG"
+check "apply: marker written" test -s "$HOME/.local/state/stagos/plasma-layout-applied"
+check "apply: KWin reconfigured" grep -q '^qdbus6 org.kde.KWin /KWin reconfigure' "$FAKE_LOG"
+: > "$FAKE_LOG"; stag-plasma-apply --quiet >/dev/null 2>&1
+check "apply: normal run never reloads the layout" bash -c "! grep -q loadLookAndFeel '$FAKE_LOG' && grep -q 'stagosSyncDock' '$FAKE_LOG'"
+: > "$FAKE_LOG"; stag-plasma-apply --reset-layout --quiet >/dev/null 2>&1
+check "apply --reset-layout with Plasma reloads" grep -q loadLookAndFeelDefaultLayout "$FAKE_LOG"
+# Plasma not running: --reset-layout moves the layout aside for the next start
+echo 1 > "$FAKE_DIR/qdbus6.rc"; echo '[x]' > "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
+stag-plasma-apply --reset-layout --quiet >/dev/null 2>&1
+check "apply --reset-layout offline: old layout moved aside, marker cleared" bash -c "ls '$HOME'/.config/plasma-org.kde.plasma.desktop-appletsrc.stagos-bak-* && test ! -e '$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc' && test ! -e '$HOME/.local/state/stagos/plasma-layout-applied'"
+sandbox
+if ! command -v kwriteconfig6 >/dev/null 2>&1; then   # only meaningful where Plasma is really absent
+  check "apply: without Plasma installed exits 0" bash -c "STAGOS_PLASMA_DATA='$ROOT/desktop/plasma' stag-plasma-apply 2>&1 | grep -q 'Plasma is not installed'"
+fi
+unset STAGOS_PLASMA_DATA STAGOS_DESKTOP_CONF XDG_DATA_DIRS
+
+# ---- plasma data invariants ----
+P="$ROOT/desktop/plasma"
+check "base.kconf: every line is file|group|key|value" bash -c "grep -vE '^(#|$)' '$P/base.kconf' | awk -F'|' 'NF < 4 { bad = 1 } END { exit bad }'"
+check "base.kconf: no hot corner, no wobbly/magic lamp/translucency" bash -c "grep -q '^kwinrc|Effect-overview|BorderActivate|9$' '$P/base.kconf' && for e in wobblywindows magiclamp translucency; do grep -q \"^kwinrc|Plugins|\${e}Enabled|false$\" '$P/base.kconf' || exit 1; done"
+check "StagOS.colors uses the contract palette" bash -c "grep -q 'BackgroundNormal=10,10,10' '$P/StagOS.colors' && grep -q 'DecorationFocus=200,16,46' '$P/StagOS.colors' && grep -q 'ForegroundNormal=240,240,240' '$P/StagOS.colors'"
+check "desktop.conf.default: contract sections" bash -c "for s in session bar dock effects recon; do grep -qx \"\\[\$s\\]\" '$P/desktop.conf.default' || exit 1; done"
+check "layout.js: dock dodges windows, bar is 26px" bash -c "grep -q 'dock.hiding = \"dodgewindows\"' '$P/layout.js' && grep -q 'bar.height = 26' '$P/layout.js'"
+
 # ---- config invariants ----
 RC="$ROOT/desktop/labwc/rc.xml"
 # keys keyd owns must never also be plain labwc Super binds

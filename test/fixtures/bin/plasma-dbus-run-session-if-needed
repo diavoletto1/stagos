@@ -1,0 +1,4 @@
+#!/bin/sh
+# fixture: stand-in for /usr/lib/plasma-dbus-run-session-if-needed (logs, then runs its arguments)
+echo "dbus-wrapper $*" >> "${FAKE_LOG:?}"
+exec "$@"
