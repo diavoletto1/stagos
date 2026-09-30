@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Visual smoke for the StagOS widgets. Runs as jack INSIDE the throwaway test container, after
 # `stagos-desktop plasma` (see test/stag-widgets-container.sh). Xvfb + kwin_wayland on its X11 backend +
-# plasmashell (what works in rootless podman, see desktop/plasma/NOTES-for-p2-p3.md), then screenshots:
+# plasmashell (what works in rootless podman, see README, Plasma, Internals), then screenshots:
 # the bar, the Control Center, the STAG menu, a notification popup with the notifications applet hidden
 # in the tray, and the same notification with Do Not Disturb on. Output: $1 (default /out).
 # The readouts get a stagpad-like /sys and /proc (test/fixtures/fake-desktop.sh) so the bar is not empty.
