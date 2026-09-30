@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""fixture: a tiny kwriteconfig6 / kreadconfig6. Symlink it under both names. Stores real INI files in
+$XDG_CONFIG_HOME (default ~/.config), nested groups joined as [a][b] like KDE, and never rewrites a
+file whose content would not change (so stag-plasma-apply's "0 files changed" check is meaningful).
+Every call is also logged to $FAKE_LOG when set."""
+import os, sys
+
+name = os.path.basename(sys.argv[0])
+args = sys.argv[1:]
+if os.environ.get("FAKE_LOG"):
+    with open(os.environ["FAKE_LOG"], "a") as f:
+        f.write(name + " " + " ".join(args) + "\n")
+fname, groups, key, value, default = None, [], None, None, ""
+i = 0
+while i < len(args):
+    a = args[i]
+    if a == "--file": fname = args[i + 1]; i += 2
+    elif a == "--group": groups.append(args[i + 1]); i += 2
+    elif a == "--key": key = args[i + 1]; i += 2
+    elif a == "--default": default = args[i + 1]; i += 2
+    elif a == "--type": i += 2
+    elif a == "--": value = " ".join(args[i + 1:]); break
+    else: i += 1
+base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+path = fname if os.path.isabs(fname) else os.path.join(base, fname)
+header = "".join("[%s]" % g for g in groups)
+lines = open(path).read().split("\n") if os.path.exists(path) else []
+if lines and lines[-1] == "":
+    lines.pop()
+
+
+def find():
+    sec = None
+    for n, l in enumerate(lines):
+        if l.startswith("["):
+            sec = l
+        elif sec == header and l.split("=", 1)[0] == key:
+            return n
+    return None
+
+
+n = find()
+if name == "kreadconfig6":
+    print(lines[n].split("=", 1)[1] if n is not None else default)
+    sys.exit(0)
+new = key + "=" + (value or "")
+if n is not None:
+    if lines[n] == new:
+        sys.exit(0)
+    lines[n] = new
+else:
+    idx = None
+    for m, l in enumerate(lines):
+        if l == header:
+            idx = m + 1
+            while idx < len(lines) and not lines[idx].startswith("["):
+                idx += 1
+    if idx is None:
+        lines += [header, new]
+    else:
+        lines.insert(idx, new)
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, "w").write("\n".join(lines) + "\n")

@@ -1,0 +1,12 @@
+# StagOS: re-apply desktop.conf to Plasma whenever the Settings app (or a hand edit) changes it.
+# %E = $XDG_CONFIG_HOME, %S = $XDG_STATE_HOME for the user manager.
+[Unit]
+Description=Watch StagOS desktop.conf
+
+[Path]
+PathChanged=%E/stagos/desktop.conf
+PathExists=%S/stagos/reset-layout.request
+Unit=stagos-desktop-apply.service
+
+[Install]
+WantedBy=default.target
