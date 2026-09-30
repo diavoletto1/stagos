@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=StagOS Settings
+GenericName=Desktop settings
+Comment=Top bar, dock, look, session and recon settings for StagOS
+Exec=stag-settings
+Icon=stag-settings
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=settings;stagos;bar;dock;blur;session;recon;preferences;
+StartupWMClass=stag-settings

@@ -12,7 +12,7 @@ stagos_dm_plasma() {
   fi
   dm_pkgs plasma-desktop plasma-workspace kwin kscreen plasma-nm plasma-pa bluedevil powerdevil \
     kdeplasma-addons ksystemstats libksysguard breeze xdg-desktop-portal-kde systemsettings kde-cli-tools \
-    kirigami qt6-declarative plasma5support spectacle kpackage qt6-tools qt6-wayland plasma-integration \
+    kirigami qqc2-desktop-style qt6-declarative plasma5support spectacle kpackage qt6-tools qt6-wayland plasma-integration \
     polkit-kde-agent knighttime papirus-icon-theme inter-font ttf-jetbrains-mono
   dm_bins stag-session stag-plasma-apply
   stagos_plasma_widgets
@@ -78,6 +78,7 @@ DBUS
     n="$(cat "$count" 2>/dev/null)"; [[ "$n" =~ ^[0-9]+$ ]] && DM_CHANGED=$((DM_CHANGED + n))
   fi
   rm -f "$count"
+  stagos_dm_plasma_settings
   dm_note "plasma: log out, then 'stag-session plasma' (or labwc) picks the tty1 session; see README, Plasma"
   ok "plasma installed (default session: $(STAGOS_PLASMA_DATA="$data/stagos/plasma" "$HERE/desktop/bin/stag-session.sh" --status | sed -n 's/^next=//p'))"
 }
@@ -101,4 +102,34 @@ stagos_plasma_widgets() {
     fi
     DM_CHANGED=$((DM_CHANGED + 1)); log "plasmoid $id installed"
   done
+}
+
+# StagOS Settings (stag-settings), its launcher entries, the System Settings entry and the systemd --user
+# path unit that re-runs stag-plasma-apply when desktop.conf changes. No root needed except /usr/local/bin.
+stagos_dm_plasma_settings() {
+  local src="$HERE/desktop/plasma/settings" data="${XDG_DATA_HOME:-$HOME/.local/share}" f units_before
+  for f in main.qml Conf.qml ini.js PageFrame.qml TopBarPage.qml DockPage.qml LookPage.qml SessionPage.qml ReconPage.qml AboutPage.qml; do
+    dm_install "$src/$f" "$data/stagos/settings/$f" 644
+  done
+  dm_install "$src/stag-settings.sh" /usr/local/bin/stag-settings 755 sudo
+  dm_install "$src/stag-settings-apply.sh" /usr/local/bin/stag-settings-apply 755 sudo
+  dm_install "$src/share/stag-settings.svg" "$data/icons/hicolor/scalable/apps/stag-settings.svg" 644
+  # app launcher + KRunner
+  dm_install "$src/share/stag-settings.desktop" "$data/applications/stag-settings.desktop" 644
+  # Plasma System Settings lists external apps from <XDG data dir>/plasma/systemsettings/externalmodules/*.desktop
+  # (systemsettings app/kcmmetadatahelpers.h: findExternalKCMModules), so this needs no system-wide file
+  dm_install "$src/share/stag-settings-module.desktop" "$data/plasma/systemsettings/externalmodules/stag-settings.desktop" 644
+  # desktop.conf -> stag-plasma-apply on every change
+  units_before="$DM_CHANGED"
+  for f in stagos-desktop-apply.path stagos-desktop-apply.service; do
+    dm_install "$src/units/$f" "$(dm_cfg)/systemd/user/$f" 644
+  done
+  if dm_dry; then
+    dm_note "plasma: systemctl --user enable --now stagos-desktop-apply.path (dry run)"
+  elif systemctl --user show-environment >/dev/null 2>&1; then
+    [[ "$DM_CHANGED" != "$units_before" ]] && systemctl --user daemon-reload
+    systemctl --user enable --now stagos-desktop-apply.path >/dev/null 2>&1 || warn "could not enable stagos-desktop-apply.path"
+  else
+    dm_note "plasma: no systemd user manager running; after login run: systemctl --user enable --now stagos-desktop-apply.path"
+  fi
 }
