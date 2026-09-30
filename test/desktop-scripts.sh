@@ -17,6 +17,8 @@ check() { # check "name" command...
 sandbox() {
   rm -rf "${T:?}/fake" "${T:?}/bin"; mkdir -p "$T/fake" "$T/bin"
   export FAKE_DIR="$T/fake" FAKE_LOG="$T/fake/log" HOME="$T/home"
+  # CI runners may export XDG_*; helpers must resolve under the sandbox HOME
+  unset XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME
   mkdir -p "$HOME"; : > "$FAKE_LOG"
   local t; for t in "$@"; do ln -s "$FAKE" "$T/bin/$t"; done
   PATH="$T/bin:$ORIG_PATH"
