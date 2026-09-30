@@ -293,7 +293,7 @@ stagbot_probe() {
   list="$(stag_services_file)"
   tmp="$(mktemp -d)"
   while IFS='|' read -r n u; do
-    [ -n "$n" ] && [ -n "$u" ] || continue
+    [[ -n "$n" && -n "$u" ]] || continue
     names+=("$n"); urls+=("$u")
     curl -sS -o /dev/null -I --max-time 3 -w '%{http_code}' "$u" > "$tmp/$i" 2>/dev/null &
     i=$((i + 1))
@@ -354,14 +354,14 @@ cmd_apps() {
   f="$(stag_services_file)"
   [ -r "$f" ] || { echo '{"apps":[]}'; return 0; }
   while IFS='|' read -r n u; do
-    [ -n "$n" ] && [ -n "$u" ] || continue
+    [[ -n "$n" && -n "$u" ]] || continue
     [ -n "$out" ] && out+=","
     out+="{\"name\":\"$(stag_json_esc "$n")\",\"title\":\"Stag $(stag_json_esc "${n^}")\"}"
   done < "$f"
   printf '{"apps":[%s]}\n' "$out"
 }
 cmd_app() {
-  [ "${1:-}" = open ] && [ -n "${2:-}" ] || usage
+  [[ "${1:-}" = open && -n "${2:-}" ]] || usage
   local url
   url="$(stag_service_url "$2")" || fail 3 "no stag service named $2"
   open_url "$url" "$2" || fail 1 "could not open $2"

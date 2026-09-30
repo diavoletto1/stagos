@@ -156,7 +156,7 @@ stag_capture_iface() { # the capture card: desktop.conf [recon] capture_iface, e
 }
 stag_iface_mode() { # IFACE: monitor | managed | absent (ARPHRD 803 = radiotap = monitor mode)
   local d="$STAG_SYS/class/net/$1" t
-  [ -n "$1" ] && [ -d "$d" ] || { echo absent; return; }
+  [[ -n "$1" && -d "$d" ]] || { echo absent; return; }
   t="$(stag_read "$d/type")"
   if [ "$t" = 803 ]; then echo monitor
   elif [ -d "$d/wireless" ] || [ -e "$d/phy80211" ]; then echo managed
