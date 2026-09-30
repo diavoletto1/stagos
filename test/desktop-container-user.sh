@@ -32,7 +32,7 @@ sec "package names resolve (incl. the heavy ones excluded from the real run)"
 pacman -Sy --noconfirm >/dev/null 2>&1 || sudo pacman -Sy --noconfirm >/dev/null 2>&1
 for p in blender freecad libreoffice-fresh qemu-desktop virt-manager libvirt dnsmasq chromium obsidian spotify-launcher openscad \
   arm-none-eabi-gcc arm-none-eabi-newlib mission-center gnome-disk-utility papers imv xournalpp gnome-calculator nodejs npm flatpak \
-  swaync swayosd nwg-dock waybar fuzzel plocate libqalculate keyd blueman bluez bluez-utils grim slurp swappy wf-recorder cliphist wlsunset \
+  swaync swayosd waybar fuzzel plocate libqalculate keyd blueman bluez bluez-utils grim slurp swappy wf-recorder cliphist wlsunset \
   tlp tlp-rdw swayidle swaylock wlopm fwupd upower restic snapper snap-pac grub-btrfs inotify-tools gnome-keyring seahorse libsecret \
   wtype libinput pipewire pipewire-pulse pipewire-alsa wireplumber pavucontrol playerctl alsa-utils nm-connection-editor network-manager-applet \
   inter-font ttf-jetbrains-mono ttf-nerd-fonts-symbols noto-fonts noto-fonts-emoji brightnessctl wlr-randr papirus-icon-theme; do
@@ -58,7 +58,7 @@ done
 
 sec "files landed"
 C="$HOME/.config"
-for f in labwc/rc.xml labwc/autostart waybar/config.jsonc nwg-dock/style.css swaync/config.json swayosd/style.css fuzzel/fuzzel.ini \
+for f in labwc/rc.xml labwc/autostart waybar/config.jsonc waybar-dock/config.jsonc waybar-dock/style.css swaync/config.json swayosd/style.css fuzzel/fuzzel.ini \
   keyd/app.conf fontconfig/fonts.conf chromium-flags.conf libinput-gestures.conf stagos/desktop.env swappy/config \
   systemd/user/stagos-restic.timer systemd/user/stagos-restic.service stagos/backup.env stagos/stag-services; do
   t "config/$f" test -s "$C/$f"
@@ -72,7 +72,7 @@ t "stagos-backup in ~/.local/bin" test -x "$HOME/.local/bin/stagos-backup"
 t "6 stag launchers"  bash -c "test \$(ls $HOME/.local/share/applications/stag-*.desktop | wc -l) -eq 6"
 t "stag urls only in home, not repo" bash -c "! grep -rq 'stag.test.invalid' $PWD --include='*' --exclude=local.conf --exclude-dir=.git --exclude='desktop-container*'"
 t "stag desktop entries valid Exec" grep -q 'Exec=chromium --app=https://stag.test.invalid/tasks/' "$HOME/.local/share/applications/stag-tasks.desktop"
-t "dock pinned has stag + claude" bash -c "grep -q stag-maps ~/.cache/nwg-dock-pinned && grep -q claude ~/.cache/nwg-dock-pinned"
+t "waybar-dock config is valid JSONC" python3 -c "import json,re,sys; json.loads(re.sub(r'(?m)^\s*//.*\$', '', open(sys.argv[1]).read()))" "$C/waybar-dock/config.jsonc"
 t "claude launcher" grep -q 'chromium --app=https://claude.ai' "$HOME/.local/share/applications/claude.desktop"
 t "claude code CLI installed" test -x "$HOME/.local/bin/claude"
 t "empty-password keyring created" test -s "$HOME/.local/share/keyrings/login.keyring"
@@ -101,7 +101,7 @@ sleep 2
 (timeout 6 waybar -c "$HOME/.config/waybar/config.jsonc" -s "$HOME/.config/waybar/style.css" > /tmp/waybar.log 2>&1) &
 (timeout 6 swaync > /tmp/swaync.log 2>&1) &
 (timeout 6 swayosd-server > /tmp/swayosd.log 2>&1) &
-(timeout 6 nwg-dock -p bottom -i 44 -nows -s "$HOME/.config/nwg-dock/style.css" > /tmp/nwgdock.log 2>&1) &
+(timeout 6 waybar -c "$HOME/.config/waybar-dock/config.jsonc" -s "$HOME/.config/waybar-dock/style.css" > /tmp/waybar-dock.log 2>&1) &
 sleep 7
 labwc --exit 2>/dev/null; kill -TERM "$PPID" 2>/dev/null
 PROBE
@@ -114,7 +114,8 @@ echo "--- waybar.log"; head -20 /tmp/waybar.log
 t "waybar config loads (no parse error)" bash -c "! grep -Ei 'parse|Error\]|failed to load|invalid' /tmp/waybar.log"
 echo "--- swaync.log"; head -8 /tmp/swaync.log
 t "swaync config+css load" bash -c "! grep -Ei 'Failed to (load|parse)|CSS Error|invalid' /tmp/swaync.log"
-echo "--- nwgdock.log"; head -8 /tmp/nwgdock.log
+echo "--- waybar-dock.log"; head -8 /tmp/waybar-dock.log
+t "waybar dock config loads (no parse error)" bash -c "! grep -Ei 'parse|Error\]|failed to load|invalid' /tmp/waybar-dock.log"
 
 sec "btrfs branch (simulated: real pacman installs, snapper/grub-btrfs actions dry)"
 STAGOS_ROOT_FSTYPE=btrfs DRY_RUN=1 ./stagos-desktop snapshots > /tmp/btrfs.log 2>&1

@@ -121,7 +121,7 @@ check "rc.xml: touchpad tap + natural scroll" bash -c "grep -q '<tap>yes' '$RC' 
 check "keyd map covers the ten Cmd keys" bash -c "for k in c v x z a q w t f s; do grep -q \"^\$k = C-\" '$ROOT/desktop/keyd/default.conf' || exit 1; done"
 check "foot never gets bare Ctrl from Cmd" bash -c "! sed -n '/^\[foot\]/,\$p' '$ROOT/desktop/keyd/app.conf' | grep -E '= C-[a-z]\$'"
 check "no em dashes in tracked text" bash -c "cd '$ROOT' && ! grep -rlI --exclude-dir=.git \$'\xe2\x80\x94' . | grep -q ."
-check "no CDN/external urls in desktop css" bash -c "! grep -rE 'https?://' '$ROOT/desktop/swaync' '$ROOT/desktop/swayosd' '$ROOT/desktop/nwg-dock' '$ROOT/desktop/waybar/style.css'"
+check "no CDN/external urls in desktop css" bash -c "! grep -rE 'https?://' '$ROOT/desktop/swaync' '$ROOT/desktop/swayosd' '$ROOT/desktop/waybar-dock/style.css' '$ROOT/desktop/waybar/style.css'"
 
 # ---- snapshots module: backup.env must survive sourcing with hostile repo strings ----
 sandbox
