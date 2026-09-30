@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Stag integration: a chromium --app launcher for each stag-* service, pinned in the dock and
-# listed in the STAG menu on the bar. Host and paths come from config/local.conf (untracked).
+# Stag integration: a chromium --app launcher for each stag-* service, listed in the STAG menu on
+# the bar. Host and paths come from config/local.conf (untracked).
 stagos_dm_stag() {
   dm_pkgs chromium fuzzel
   dm_bins stag-menu
@@ -31,7 +31,6 @@ DESK
     dm_write "$icons/stag-$p.svg" 644 <<SVG
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" fill="#0a0a0a"/><rect x="2" y="2" width="124" height="124" fill="none" stroke="#2a2a2a" stroke-width="2"/><rect x="2" y="120" width="124" height="6" fill="#c8102e"/><text x="64" y="84" font-family="Inter, sans-serif" font-size="64" font-weight="700" fill="#f0f0f0" text-anchor="middle">$initial</text></svg>
 SVG
-    dm_line_in_file "$HOME/.cache/nwg-dock-pinned" "stag-$p"
   done
   printf '%s' "$list" | dm_write "$(dm_cfg)/stagos/stag-services" 600
   ok "stag launchers: ${STAGOS_STAG_PATHS[*]}"

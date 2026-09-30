@@ -1,24 +1,32 @@
 // StagOS app dock: second waybar, bottom-center, text tiles (HUD style).
-// Toggled by stag-dock (Super+A or DOCK on the top bar); closed = not running.
-// Text, not icons: waybar's image module deadlocks with gdk-pixbuf's glycin loader.
+// Toggled by stag-dock (Super+Shift+D or DOCK on the top bar); closed = not running.
+// Text, not icons: waybar's image module deadlocks with gdk-pixbuf's glycin loader,
+// and nwg-dock needs sway/hyprland IPC, which labwc does not have.
 {
   "name": "dock",
   "layer": "top",
   "position": "bottom",
   "exclusive": false,
-  "width": 620,
-  "height": 56,
-  "margin-bottom": 12,
+  "height": 44,
+  "width": 820,
+  "margin-bottom": 10,
   "modules-center": [
-    "custom/apps", "custom/term", "custom/web", "custom/files",
+    "custom/apps",
+    "custom/term", "custom/web", "custom/files", "custom/notes", "custom/code", "custom/music", "custom/claude",
+    "custom/sep",
     "custom/kismet", "custom/shark", "custom/mon"
   ],
-  "custom/apps":   { "format": "APPS",   "on-click": "fuzzel",                      "tooltip-format": "app launcher" },
-  "custom/term":   { "format": "TERM",   "on-click": "foot",                        "tooltip-format": "terminal (foot)" },
-  "custom/web":    { "format": "WEB",    "on-click": "firefox",                     "tooltip-format": "firefox" },
-  "custom/files":  { "format": "FILES",  "on-click": "foot -T files -e yazi",       "tooltip-format": "files (yazi)" },
-  "custom/kismet": { "format": "KISMET", "on-click": "stag-kismet",                 "tooltip-format": "start kismet + open web UI" },
-  "custom/shark":  { "format": "SHARK",  "on-click": "wireshark",                   "tooltip-format": "wireshark" },
+  "custom/apps":   { "format": "APPS",   "on-click": "fuzzel",                  "tooltip-format": "all apps (Super+Space)" },
+  "custom/term":   { "format": "TERM",   "on-click": "foot",                    "tooltip-format": "terminal" },
+  "custom/web":    { "format": "WEB",    "on-click": "chromium",                "tooltip-format": "chromium" },
+  "custom/files":  { "format": "FILES",  "on-click": "thunar",                  "tooltip-format": "files" },
+  "custom/notes":  { "format": "NOTES",  "on-click": "obsidian",                "tooltip-format": "obsidian" },
+  "custom/code":   { "format": "CODE",   "on-click": "code",                    "tooltip-format": "vs code" },
+  "custom/music":  { "format": "MUSIC",  "on-click": "spotify-launcher",        "tooltip-format": "spotify" },
+  "custom/claude": { "format": "CLAUDE", "on-click": "gtk-launch claude",       "tooltip-format": "claude.ai" },
+  "custom/sep":    { "format": "|",      "tooltip": false },
+  "custom/kismet": { "format": "KISMET", "on-click": "stag-kismet",             "tooltip-format": "start kismet + open web UI" },
+  "custom/shark":  { "format": "SHARK",  "on-click": "wireshark",               "tooltip-format": "wireshark" },
   "custom/mon": {
     "exec": "$HOME/.config/waybar/scripts/capture.sh",
     "return-type": "json", "interval": 5,

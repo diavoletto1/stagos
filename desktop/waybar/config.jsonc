@@ -1,113 +1,98 @@
+// StagOS top bar - stag-control HUD, text tiles. Sized for 2560x1440 at scale 1.5
+// (about 1700 logical px): every module is short, details live in tooltips.
 {
   "layer": "top",
   "position": "top",
-  "height": 42,
-  "spacing": 8,
-  "modules-left": ["ext/workspaces", "wlr/taskbar"],
-  "modules-center": ["clock", "custom/notification"],
+  "height": 34,
+  "spacing": 0,
+  "modules-left": ["custom/stag", "ext/workspaces", "wlr/taskbar"],
+  "modules-center": ["clock"],
   "modules-right": [
-    "custom/stag", "custom/tailscale", "custom/gps", "custom/capture",
+    "group/recon",
     "network", "bluetooth", "pulseaudio", "backlight", "battery",
-    "tray", "custom/dock", "custom/power"
+    "tray", "custom/notification", "custom/dock", "custom/power"
   ],
-  "ext/workspaces": {
-    "format": "{name}",
+
+  "ext/workspaces": { "format": "{name}", "on-click": "activate", "sort-by-number": true },
+  "wlr/taskbar": {
+    "format": "{title:.16}",
+    "tooltip-format": "{title}",
     "on-click": "activate",
-    "sort-by-number": true
+    "on-click-middle": "close",
+    "ignore-list": ["fuzzel"]
   },
-  "custom/stag": {
-    "format": " STAG ",
-    "on-click": "stag-menu",
-    "tooltip-format": "stag-* services",
-    "tooltip": true
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "tooltip-format": "<tt>{calendar}</tt>"
   },
+
+  "custom/stag": { "format": "STAG", "on-click": "stag-menu", "tooltip-format": "stag-* services" },
+
+  // wardriving status: one bordered group, details in tooltips
+  "group/recon": {
+    "orientation": "horizontal",
+    "modules": ["custom/tailscale", "custom/gps", "custom/capture"]
+  },
+  "custom/tailscale": { "exec": "$HOME/.config/waybar/scripts/tailscale.sh", "interval": 10, "return-type": "json" },
+  "custom/gps":       { "exec": "$HOME/.config/waybar/scripts/gps.sh",       "interval": 5,  "return-type": "json" },
+  "custom/capture":   { "exec": "$HOME/.config/waybar/scripts/capture.sh",   "interval": 5,  "return-type": "json" },
+
+  "network": {
+    "format-wifi": "WIFI {signalStrength}",
+    "format-ethernet": "ETH",
+    "format-linked": "WIFI --",
+    "format-disconnected": "WIFI off",
+    "tooltip-format-wifi": "{essid}  {ipaddr}  {signalStrength}%",
+    "tooltip-format-ethernet": "{ifname}  {ipaddr}",
+    "on-click": "nm-connection-editor"
+  },
+  "bluetooth": {
+    "format": "BT",
+    "format-off": "BT",
+    "format-disabled": "BT",
+    "format-connected": "BT {num_connections}",
+    "tooltip-format": "{controller_alias}: {status}",
+    "tooltip-format-connected": "{device_enumerate}",
+    "tooltip-format-enumerate-connected": "{device_alias}",
+    "on-click": "blueman-manager"
+  },
+  "pulseaudio": {
+    "format": "VOL {volume}",
+    "format-muted": "MUTE",
+    "on-click": "pavucontrol",
+    "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "on-scroll-up": "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 2%+",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"
+  },
+  "backlight": {
+    "format": "BRT {percent}",
+    "on-scroll-up": "brightnessctl set +5%",
+    "on-scroll-down": "brightnessctl set 5%-"
+  },
+  "battery": {
+    "states": { "warning": 30, "critical": 15 },
+    "format": "BAT {capacity}",
+    "format-charging": "BAT {capacity}+",
+    "format-plugged": "BAT {capacity}+",
+    "format-full": "BAT FULL",
+    "tooltip-format": "{timeTo}  {power:.1f} W"
+  },
+  "tray": { "icon-size": 16, "spacing": 6 },
   "custom/notification": {
     "exec": "swaync-client -swb",
     "return-type": "json",
     "escape": true,
     "format": "{icon}",
     "format-icons": {
-      "notification": "NOTIF *",
-      "none": "NOTIF",
-      "dnd-notification": "DND *",
-      "dnd-none": "DND",
-      "inhibited-notification": "NOTIF *",
-      "inhibited-none": "NOTIF",
-      "dnd-inhibited-notification": "DND *",
-      "dnd-inhibited-none": "DND"
+      "notification": "NOTE *", "none": "NOTE",
+      "dnd-notification": "DND *", "dnd-none": "DND",
+      "inhibited-notification": "NOTE *", "inhibited-none": "NOTE",
+      "dnd-inhibited-notification": "DND *", "dnd-inhibited-none": "DND"
     },
     "on-click": "swaync-client -t -sw",
     "on-click-right": "swaync-client -d -sw",
     "tooltip": false
   },
-  "bluetooth": {
-    "format": "BT {status}",
-    "format-connected": "BT {device_alias}",
-    "format-off": "BT off",
-    "format-disabled": "BT off",
-    "tooltip-format": "{controller_alias} {num_connections} connected",
-    "on-click": "blueman-manager"
-  },
-  "backlight": {
-    "format": "BRT {percent}%",
-    "on-scroll-up": "brightnessctl set +5%",
-    "on-scroll-down": "brightnessctl set 5%-"
-  },
-  "wlr/taskbar": {
-    "format": "{icon} {title:.18}",
-    "icon-size": 24,
-    "tooltip-format": "{title}",
-    "on-click": "activate",
-    "on-click-middle": "close",
-    "ignore-list": ["fuzzel"]
-  },
-  "tray": { "icon-size": 18, "spacing": 8 },
-  "custom/dock": {
-    "format": " DOCK ",
-    "on-click": "stag-dock",
-    "tooltip": false
-  },
-  "custom/power": {
-    "format": "  PWR  ",
-    "on-click": "stag-power",
-    "tooltip": false
-  },
-  "custom/tailscale": {
-    "exec": "$HOME/.config/waybar/scripts/tailscale.sh",
-    "interval": 10, "return-type": "json"
-  },
-  "custom/gps": {
-    "exec": "$HOME/.config/waybar/scripts/gps.sh",
-    "interval": 5, "return-type": "json"
-  },
-  "custom/capture": {
-    "exec": "$HOME/.config/waybar/scripts/capture.sh",
-    "interval": 5, "return-type": "json"
-  },
-  "network": {
-    "format-wifi": "WIFI {essid} {signalStrength}%",
-    "format-ethernet": "ETH {ipaddr}",
-    "format-disconnected": "WIFI down",
-    "tooltip-format": "{ifname} {ipaddr}",
-    "max-length": 22,
-    "on-click": "nm-connection-editor"
-  },
-  "cpu": { "format": "CPU {usage}%", "interval": 3 },
-  "memory": { "format": "MEM {percentage}%", "interval": 5 },
-  "pulseaudio": {
-    "format": "VOL {volume}%",
-    "format-muted": "MUTE",
-    "on-click": "pavucontrol",
-    "on-scroll-up": "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 2%+",
-    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"
-  },
-  "battery": {
-    "states": { "warning": 30, "critical": 15 },
-    "format": "BAT {capacity}%",
-    "format-charging": "CHG {capacity}%"
-  },
-  "clock": {
-    "format": "{:%a %d %b  %H:%M}",
-    "tooltip-format": "<tt>{calendar}</tt>"
-  }
+  "custom/dock":  { "format": "DOCK", "on-click": "stag-dock", "tooltip-format": "show / hide the dock (Super+Shift+D)" },
+  "custom/power": { "format": "PWR",  "on-click": "stag-power", "tooltip-format": "lock, sleep, restart, shut down" }
 }

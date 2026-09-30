@@ -1,74 +1,84 @@
-/* StagOS waybar - stag-control HUD tokens */
+/* StagOS top bar - stag-control HUD tokens: black, grey surfaces, hairlines, red accent */
 * {
   font-family: "JetBrains Mono", monospace;
-  font-size: 17px;
+  font-size: 13px;
   font-weight: 700;
   min-height: 0;
+  border-radius: 0;
 }
 window#waybar {
   background: #0a0a0a;
   border-bottom: 1px solid #2a2a2a;
   color: #d4d4d4;
 }
+tooltip { background: #0a0a0a; border: 1px solid #2a2a2a; }
+tooltip label { color: #d4d4d4; font-weight: 400; }
 
-/* app bar (open windows) */
-#taskbar button {
-  padding: 0 12px;
-  margin: 3px 2px;
-  color: #d4d4d4;
-  background: #1a1a1a;
+/* workspaces: square numbered tiles, red underline on the active one */
+#workspaces { margin-left: 4px; }
+#custom-stag { margin-left: 6px; border-color: #c8102e; }
+#workspaces button {
+  padding: 0 9px;
+  margin: 5px 2px;
+  color: #777;
+  background: #141414;
   border: 1px solid #2a2a2a;
-  border-radius: 0;
 }
-#taskbar button.active {
+#workspaces button.active { color: #f0f0f0; border-bottom: 2px solid #c8102e; background: #1c1c1c; }
+#workspaces button:hover { color: #f0f0f0; border-color: #c8102e; }
+
+/* open windows */
+#taskbar { margin-left: 10px; }
+#taskbar button {
+  padding: 0 10px;
+  margin: 5px 2px;
+  color: #a8a8a8;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  font-weight: 400;
+}
+#taskbar button.active { color: #f0f0f0; border-bottom: 2px solid #c8102e; }
+
+#clock { color: #f0f0f0; font-weight: 800; letter-spacing: 1px; }
+
+/* right side: plain labels separated by spacing, tiles only for buttons */
+#network, #bluetooth, #pulseaudio, #backlight, #battery, #tray, #custom-notification {
+  padding: 0 9px;
+  color: #a8a8a8;
+}
+#custom-stag, #custom-dock {
+  padding: 0 10px;
+  margin: 5px 3px;
   color: #f0f0f0;
-  border-bottom: 2px solid #c8102e;
-  background: #1f1f1f;
+  background: #141414;
+  border: 1px solid #2a2a2a;
 }
-
-#clock { color: #f0f0f0; font-weight: 800; }
-
-#custom-tailscale, #custom-gps, #custom-capture,
-#network, #bluetooth, #backlight, #cpu, #memory, #pulseaudio, #battery, #custom-dock, #custom-power,
-#custom-notification {
-  padding: 0 12px;
-  color: #d4d4d4;
-}
-
-/* dock toggle */
-#custom-dock { color: #f0f0f0; border: 1px solid #2a2a2a; margin: 3px 2px; }
-#custom-dock:hover { border-color: #c8102e; }
-
-/* power button */
+#custom-stag:hover, #custom-dock:hover { border-color: #c8102e; }
 #custom-power {
+  padding: 0 10px;
+  margin: 5px 6px 5px 3px;
   color: #f0f0f0;
   background: #c8102e;
-  margin: 3px 2px 3px 6px;
-  font-weight: 700;
 }
 #custom-power:hover { background: #a30d24; }
 
-#battery.warning, #battery.critical { color: #c8102e; }
-#battery.charging { color: #a8a8a8; }
-#network.disconnected { color: #c8102e; }
-.ok  { color: #a8a8a8; }
+/* recon group: TS / GPS / MON in one hairline box */
+#recon {
+  margin: 5px 6px;
+  border: 1px solid #2a2a2a;
+  background: #101010;
+}
+#custom-tailscale, #custom-gps, #custom-capture { padding: 0 7px; color: #a8a8a8; }
+
+/* state colours */
+.ok  { color: #d4d4d4; }
 .off { color: #555; }
 .hot { color: #c8102e; }
-
-/* workspaces */
-#workspaces button {
-  padding: 0 10px;
-  margin: 3px 2px;
-  color: #888;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 0;
-}
-#workspaces button.active { color: #f0f0f0; border-bottom: 2px solid #c8102e; background: #1f1f1f; }
-
-/* stag menu + notification center */
-#custom-stag { color: #f0f0f0; border: 1px solid #2a2a2a; margin: 3px 2px; padding: 0 12px; }
-#custom-stag:hover { border-color: #c8102e; }
-#custom-notification { color: #a8a8a8; }
 #bluetooth.off, #bluetooth.disabled { color: #555; }
 #bluetooth.connected { color: #f0f0f0; }
+#pulseaudio.muted { color: #555; }
+#network.disconnected { color: #c8102e; }
+#battery.charging, #battery.plugged { color: #d4d4d4; }
+#battery.warning { color: #e0a000; }
+#battery.critical { color: #c8102e; }
+#custom-notification.notification, #custom-notification.dnd-notification { color: #c8102e; }

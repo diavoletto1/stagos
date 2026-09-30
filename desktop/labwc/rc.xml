@@ -25,6 +25,7 @@
 
   <desktops>
     <number>4</number>
+    <names><name>1</name><name>2</name><name>3</name><name>4</name></names>
   </desktops>
 
   <!-- trackpad: tap to click, natural scroll, two-finger right click, palm rejection -->
