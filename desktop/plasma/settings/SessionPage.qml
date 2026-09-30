@@ -3,13 +3,15 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
-Kirigami.ScrollablePage {
+PageFrame {
     id: page
-    property var conf
-    property var ctx
+    heading: "Session"
     readonly property var kinds: [ { name: "Plasma", value: "plasma" }, { name: "labwc", value: "labwc" } ]
 
     Kirigami.FormLayout {
+        Layout.fillWidth: true
+        Layout.leftMargin: Kirigami.Units.largeSpacing
+        Layout.rightMargin: Kirigami.Units.largeSpacing
         QQC2.ComboBox {
             Kirigami.FormData.label: "Default session"
             model: page.kinds

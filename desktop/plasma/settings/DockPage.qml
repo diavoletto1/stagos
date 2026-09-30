@@ -3,10 +3,9 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
-Kirigami.ScrollablePage {
+PageFrame {
     id: page
-    property var conf
-    property var ctx
+    heading: "Dock"
     readonly property var list: { conf.rev; return conf.dockList() }
 
     function appFor(id) {
@@ -16,13 +15,13 @@ Kirigami.ScrollablePage {
     }
     function iconSource(icon) { return icon && icon.charAt(0) === "/" ? "file://" + icon : (icon || "application-x-executable") }
 
-    actions: [
-        Kirigami.Action { text: "Add app"; icon.name: "list-add"; onTriggered: picker.open() },
-        Kirigami.Action { text: "Add separator"; icon.name: "view-split-left-right"; onTriggered: page.conf.dockAdd("|") }
-    ]
+    RowLayout {
+        Layout.leftMargin: Kirigami.Units.largeSpacing * 2
+        QQC2.Button { text: "Add app..."; icon.name: "list-add"; onClicked: picker.open() }
+        QQC2.Button { text: "Add separator"; icon.name: "view-split-left-right"; onClicked: page.conf.dockAdd("|") }
+    }
 
-    ListView {
-        id: view
+    Repeater {
         model: page.list
         delegate: QQC2.ItemDelegate {
             id: row
@@ -30,7 +29,7 @@ Kirigami.ScrollablePage {
             required property string modelData
             readonly property bool sep: modelData === "|"
             readonly property var app: page.appFor(modelData)
-            width: ListView.view.width
+            Layout.fillWidth: true
             contentItem: RowLayout {
                 spacing: Kirigami.Units.largeSpacing
                 Kirigami.Icon {
@@ -57,13 +56,16 @@ Kirigami.ScrollablePage {
         }
     }
 
-    Kirigami.OverlaySheet {
+    Kirigami.Dialog {
         id: picker
         title: "Add to the dock"
+        standardButtons: Kirigami.Dialog.Close
+        preferredWidth: Kirigami.Units.gridUnit * 24
+        header: QQC2.TextField { id: q; placeholderText: "Search apps"; onVisibleChanged: if (visible) { text = ""; forceActiveFocus() } }
         ListView {
             id: appList
-            implicitWidth: Kirigami.Units.gridUnit * 22
-            header: QQC2.TextField { id: q; width: appList.width; placeholderText: "Search apps" }
+            implicitHeight: Kirigami.Units.gridUnit * 18
+            clip: true
             model: (page.ctx.apps || []).filter(function (a) {
                 return a.name.toLowerCase().indexOf(q.text.toLowerCase()) >= 0 && page.list.indexOf(a.id) < 0
             })

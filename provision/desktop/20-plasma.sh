@@ -12,7 +12,7 @@ stagos_dm_plasma() {
   fi
   dm_pkgs plasma-desktop plasma-workspace kwin kscreen plasma-nm plasma-pa bluedevil powerdevil \
     kdeplasma-addons ksystemstats libksysguard breeze xdg-desktop-portal-kde systemsettings kde-cli-tools \
-    kirigami qt6-declarative plasma5support spectacle kpackage qt6-tools qt6-wayland plasma-integration \
+    kirigami qqc2-desktop-style qt6-declarative plasma5support spectacle kpackage qt6-tools qt6-wayland plasma-integration \
     polkit-kde-agent knighttime papirus-icon-theme inter-font ttf-jetbrains-mono
   dm_bins stag-session stag-plasma-apply
   if pacman -Q kde-gtk-config >/dev/null 2>&1; then
@@ -86,7 +86,7 @@ DBUS
 # path unit that re-runs stag-plasma-apply when desktop.conf changes. No root needed except /usr/local/bin.
 stagos_dm_plasma_settings() {
   local src="$HERE/desktop/plasma/settings" data="${XDG_DATA_HOME:-$HOME/.local/share}" f units_before
-  for f in main.qml Conf.qml ini.js TopBarPage.qml DockPage.qml LookPage.qml SessionPage.qml ReconPage.qml AboutPage.qml; do
+  for f in main.qml Conf.qml ini.js PageFrame.qml TopBarPage.qml DockPage.qml LookPage.qml SessionPage.qml ReconPage.qml AboutPage.qml; do
     dm_install "$src/$f" "$data/stagos/settings/$f" 644
   done
   dm_install "$src/stag-settings.sh" /usr/local/bin/stag-settings 755 sudo

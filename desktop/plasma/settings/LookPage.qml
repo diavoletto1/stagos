@@ -3,10 +3,9 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
-Kirigami.ScrollablePage {
+PageFrame {
     id: page
-    property var conf
-    property var ctx
+    heading: "Look"
 
     // animation_factor values: slow 1.0, normal 0.7, fast 0.4
     readonly property var speeds: [
@@ -22,6 +21,9 @@ Kirigami.ScrollablePage {
     }
 
     Kirigami.FormLayout {
+        Layout.fillWidth: true
+        Layout.leftMargin: Kirigami.Units.largeSpacing
+        Layout.rightMargin: Kirigami.Units.largeSpacing
         QQC2.Switch {
             Kirigami.FormData.label: "Blur"
             text: "Blur behind panels and popups"

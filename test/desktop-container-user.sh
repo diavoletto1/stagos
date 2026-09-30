@@ -15,7 +15,7 @@ fi
 
 # ---- module plasma: shared by the "all" and "plasma" phases ----
 PLASMA_PKGS="plasma-desktop plasma-workspace kwin kscreen plasma-nm plasma-pa bluedevil powerdevil kdeplasma-addons ksystemstats
-  libksysguard breeze xdg-desktop-portal-kde systemsettings kde-cli-tools kirigami qt6-declarative plasma5support spectacle kpackage
+  libksysguard breeze xdg-desktop-portal-kde systemsettings kde-cli-tools kirigami qqc2-desktop-style qt6-declarative plasma5support spectacle kpackage
   qt6-tools qt6-wayland plasma-integration polkit-kde-agent knighttime"
 kr() { kreadconfig6 --file "$1" "${@:2}"; }
 plasma_checks() {
@@ -54,19 +54,39 @@ plasma_checks() {
   t "kpackagetool6 sees the StagOS global theme" bash -c "kpackagetool6 --type Plasma/LookAndFeel --list 2>/dev/null | grep -qx org.stagos.desktop"
   t "kpackagetool6 sees the StagOS Plasma theme" bash -c "kpackagetool6 --type Plasma/Theme --list 2>/dev/null | grep -qx StagOS"
   pacman -Q desktop-file-utils >/dev/null 2>&1 || sudo pacman -S --needed --noconfirm desktop-file-utils >/dev/null 2>&1
-  t "desktop-file-validate: dock launchers + autostart" desktop-file-validate "$D/applications/stag-kismet.desktop" "$D/applications/stag-mon.desktop" "$C/autostart/stag-plasma-apply.desktop"
+  t "desktop-file-validate: every shipped .desktop (repo) and installed copy" bash -c "desktop-file-validate desktop/share/*.desktop desktop/plasma/autostart/*.desktop desktop/plasma/settings/share/*.desktop '$D/applications/stag-kismet.desktop' '$D/applications/stag-mon.desktop' '$D/applications/stag-settings.desktop' '$D/plasma/systemsettings/externalmodules/stag-settings.desktop' '$C/autostart/stag-plasma-apply.desktop'"
+  sec "module plasma: StagOS Settings (app, launcher, System Settings entry, apply path unit)"
+  for f in stagos/settings/main.qml stagos/settings/Conf.qml stagos/settings/ini.js stagos/settings/PageFrame.qml stagos/settings/DockPage.qml \
+    icons/hicolor/scalable/apps/stag-settings.svg applications/stag-settings.desktop plasma/systemsettings/externalmodules/stag-settings.desktop; do
+    t "share/$f" test -s "$D/$f"
+  done
+  for f in systemd/user/stagos-desktop-apply.path systemd/user/stagos-desktop-apply.service; do t "config/$f" test -s "$C/$f"; done
+  t "/usr/local/bin/stag-settings + stag-settings-apply" test -x /usr/local/bin/stag-settings -a -x /usr/local/bin/stag-settings-apply
+  t "System Settings entry: external module in the workspace category" bash -c "grep -q '^X-KDE-System-Settings-Parent-Category=workspace' '$D/plasma/systemsettings/externalmodules/stag-settings.desktop' && grep -q '^Exec=stag-settings' '$D/plasma/systemsettings/externalmodules/stag-settings.desktop'"
+  t "module .desktop parses as a KService (name, icon, exec)" python3 - "$D/plasma/systemsettings/externalmodules/stag-settings.desktop" <<'PY'
+import configparser, sys
+c = configparser.ConfigParser(interpolation=None, strict=False); c.optionxform = str
+c.read(sys.argv[1]); e = c["Desktop Entry"]
+assert e["Name"] == "StagOS" and e["Icon"] == "stag-settings" and e["Exec"] == "stag-settings"
+PY
+  t "systemd-analyze verify: apply path + service" bash -c "cd '$C/systemd/user' && systemd-analyze --user verify stagos-desktop-apply.path stagos-desktop-apply.service 2>&1 | grep -v 'is not executable' | grep -v '^$' | (! grep .)"
+  t "stag-settings --print-context works installed" bash -c "stag-settings --print-context | python3 -m json.tool >/dev/null"
   if [[ -f /etc/xdg/autostart/blueman.desktop ]]; then
     t "blueman stays out of Plasma (NotShowIn=KDE override)" grep -q '^NotShowIn=KDE;' "$C/autostart/blueman.desktop"
     t "blueman override is a valid .desktop" desktop-file-validate "$C/autostart/blueman.desktop"
   fi
-  t "INI files parse (configparser, no interpolation)" python3 - "$PWD/desktop/plasma" "$C/stagos/desktop.conf" <<'PY'
+  t "every shipped INI/rc/colors file parses (configparser, no interpolation)" python3 - "$PWD/desktop/plasma" "$C/stagos/desktop.conf" <<'PY'
 import configparser, glob, json, sys
 src = sys.argv[1]
-for f in [src + "/desktop.conf.default", src + "/StagOS.colors", sys.argv[2], src + "/look-and-feel/org.stagos.desktop/contents/defaults"]:
-    configparser.ConfigParser(interpolation=None, strict=False).read_string(open(f).read(), f)
+ini = [src + "/desktop.conf.default", src + "/StagOS.colors", sys.argv[2], src + "/look-and-feel/org.stagos.desktop/contents/defaults"]
+ini += glob.glob(src + "/**/*.conf", recursive=True) + glob.glob(src + "/**/*rc", recursive=True) + glob.glob(src + "/**/*.colors", recursive=True)
+for f in sorted(set(ini)):
+    c = configparser.ConfigParser(interpolation=None, strict=False); c.optionxform = str
+    c.read_string(open(f).read(), f)
 for f in glob.glob(src + "/**/metadata.json", recursive=True):
     json.load(open(f))
 PY
+  t "path/service/desktop files have no em dashes" bash -c "! grep -rlI \$'\\xe2\\x80\\x94' desktop/plasma/settings desktop/plasma/desktop.conf.default"
   t "tty1 block runs stag-session, old 'exec labwc' block gone" bash -c "grep -q 'exec stag-session start' '$HOME/.zprofile' && test \$(grep -c '# StagOS: autostart' '$HOME/.zprofile') -eq 1 && ! grep -q 'autostart labwc on tty1' '$HOME/.zprofile'"
   t "stag-session --status: plasma by default" bash -c "stag-session --status | grep -qx 'next=plasma (default)'"
   # the installed stag-session with fake startplasma/labwc: two fast crashes fall back to labwc
@@ -79,6 +99,15 @@ PY
   rm -rf "$fk"
   stag-plasma-apply --base > /tmp/apply-again.log 2>&1
   t "stag-plasma-apply --base again changes 0 files" grep -q 'done (0 config file(s) changed)' /tmp/apply-again.log
+}
+
+# the Plasma test layer (p3): apply against fake kwriteconfig6/qdbus6, tty1 block, the Settings app headless
+plasma_test_layer() {
+  sec "Plasma test layer"
+  t "test/plasma-apply.sh" bash test/plasma-apply.sh
+  t "test/plasma-session.sh" bash test/plasma-session.sh
+  mkdir -p /tmp/plasma-shots
+  t "test/plasma-settings.sh (app loads headless, round trips, screenshots)" env STAGOS_SHOT_DIR=/tmp/plasma-shots bash test/plasma-settings.sh
 }
 
 if [[ "$phase" == plasma ]]; then
@@ -101,6 +130,7 @@ if [[ "$phase" == plasma ]]; then
   plasma_checks
   sec "helper unit tests"
   t "test/desktop-scripts.sh" bash test/desktop-scripts.sh
+  plasma_test_layer
   echo; echo "PLASMA RESULT: $pass passed, $fail failed"
   [ "$fail" -eq 0 ]; exit
 fi
@@ -219,6 +249,7 @@ t "ext4 path plans restic timer" grep -q 'stagos-restic.timer' /tmp/dry.log
 
 sec "helper unit tests"
 t "test/desktop-scripts.sh" bash test/desktop-scripts.sh
+plasma_test_layer
 
 echo; echo "CONTAINER RESULT: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

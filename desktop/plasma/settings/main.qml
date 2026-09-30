@@ -42,9 +42,8 @@ Kirigami.ApplicationWindow {
     function show(id) {
         for (var i = 0; i < pages.length; i++)
             if (pages[i].id === id) {
-                pageStack.clear()
-                pageStack.push(Qt.resolvedUrl(pages[i].file), { conf: conf, ctx: ctx, title: pages[i].title })
-                sidebar.current = id
+                sidebar.current = i
+                loader.setSource(Qt.resolvedUrl(pages[i].file), { conf: conf, ctx: ctx })
                 return
             }
     }
@@ -62,8 +61,23 @@ Kirigami.ApplicationWindow {
             else if (a === "reset-layout") { if (!conf.requestResetLayout()) ok = false }
             else { console.warn("SELFTEST unknown action " + a); ok = false }
         }
-        console.log(ok && conf.lastError === "" ? "SELFTEST OK" : "SELFTEST FAIL " + conf.lastError)
-        Qt.exit(ok ? 0 : 1)
+        selftestOk = ok
+        drain.start()
+    }
+
+    property bool selftestOk: true
+    // quit only after the async file writes have landed
+    Timer {
+        id: drain
+        interval: 50
+        repeat: true
+        onTriggered: {
+            if (conf.busy) return
+            stop()
+            var ok = selftestOk && conf.lastError === ""
+            console.log(ok ? "SELFTEST OK" : "SELFTEST FAIL " + conf.lastError)
+            Qt.exit(ok ? 0 : 1)
+        }
     }
 
     Component.onCompleted: {
@@ -85,43 +99,54 @@ Kirigami.ApplicationWindow {
     Timer {
         id: shotTimer
         interval: 1500
-        onTriggered: win.contentItem.grabToImage(function (r) {
+        onTriggered: body.grabToImage(function (r) {
             console.log(r.saveToFile(win.shotPath) ? "SHOT OK" : "SHOT FAIL")
             Qt.quit()
         })
     }
 
-    globalDrawer: Kirigami.GlobalDrawer {
-        id: sidebar
-        property string current: "bar"
-        modal: false
-        collapsible: false
-        width: 190
-        drawerOpen: true
-        showHeaderWhenCollapsed: false
-        header: Kirigami.AbstractApplicationHeader {
-            Kirigami.Heading { level: 3; text: "STAGOS"; font.letterSpacing: 2; Layout.leftMargin: Kirigami.Units.largeSpacing }
-        }
-        Component.onCompleted: {
-            var acts = []
-            for (var i = 0; i < win.pages.length; i++) {
-                var p = win.pages[i]
-                var a = actionComp.createObject(sidebar, { text: p.title, pid: p.id, icon: { name: p.icon } })
-                acts.push(a)
+    pageStack.initialPage: Kirigami.Page {
+        padding: 0
+        globalToolBarStyle: Kirigami.ApplicationHeaderStyle.None
+        Item {
+            id: body
+            anchors.fill: parent
+            RowLayout {
+                anchors.fill: parent
+                spacing: 0
+                Rectangle {
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 180
+                    color: Kirigami.Theme.alternateBackgroundColor
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 0
+                        Kirigami.Heading {
+                            text: "STAGOS"
+                            level: 3
+                            font.letterSpacing: 3
+                            font.family: "JetBrains Mono"
+                            Layout.margins: Kirigami.Units.largeSpacing * 2
+                        }
+                        Repeater {
+                            model: win.pages
+                            delegate: QQC2.ItemDelegate {
+                                required property int index
+                                required property var modelData
+                                Layout.fillWidth: true
+                                text: modelData.title
+                                icon.name: modelData.icon
+                                highlighted: sidebar.current === index
+                                onClicked: win.show(modelData.id)
+                            }
+                        }
+                        Item { Layout.fillHeight: true }
+                    }
+                    QtObject { id: sidebar; property int current: 0 }
+                }
+                Kirigami.Separator { Layout.fillHeight: true }
+                Loader { id: loader; Layout.fillWidth: true; Layout.fillHeight: true }
             }
-            sidebar.actions = acts
         }
     }
-
-    Component {
-        id: actionComp
-        Kirigami.Action {
-            property string pid: ""
-            checked: sidebar.current === pid
-            onTriggered: win.show(pid)
-        }
-    }
-
-    pageStack.globalToolBar.style: Kirigami.ApplicationHeaderStyle.None
-    pageStack.columnView.columnResizeMode: Kirigami.ColumnView.SingleColumn
 }

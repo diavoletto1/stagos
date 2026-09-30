@@ -69,7 +69,7 @@ PY
 if ! command -v "${QML_BIN:-qml6}" >/dev/null 2>&1 && ! command -v qml >/dev/null 2>&1 && ! [ -x /usr/lib/qt6/bin/qml ]; then
   echo "skip the app tests: no Qt 6 qml runtime here (they run in the container)"; skip=1
 else
-  export QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software QT_QPA_PLATFORMTHEME= QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-}"
+  export QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software
   export STAGOS_SETTINGS_CONTEXT="$T/ctx.json"
   "$S" --print-context | sed 's#"ifaces":\[[^]]*\]#"ifaces":["wlan0","wlan1"]#' > "$STAGOS_SETTINGS_CONTEXT"
   rm -f "$STAGOS_DESKTOP_CONF"
@@ -115,7 +115,8 @@ else
   check "reset layout writes the request file" grep -q '^reset-layout ' "$XDG_STATE_HOME/stagos/reset-layout.request"
   check "unknown selftest action fails" bash -c "! '$S' --selftest=bogus >/dev/null 2>&1"
 
-  # every page loads clean, screenshot each
+  # every page loads clean, screenshot each (with the StagOS color scheme in kdeglobals when kwriteconfig6 exists)
+  command -v kwriteconfig6 >/dev/null 2>&1 && "$ROOT/desktop/bin/stag-plasma-apply.sh" --base --quiet >/dev/null 2>&1
   cp "$ROOT/test/fixtures/plasma-desktop.conf" "$STAGOS_DESKTOP_CONF"
   shots="${STAGOS_SHOT_DIR:-$T/shots}"; mkdir -p "$shots"
   for p in bar dock look session recon about; do

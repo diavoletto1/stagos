@@ -1,7 +1,7 @@
 import QtQuick
 
 // desktop.conf model shared by every page. All UI writes go through set(); files are read and
-// written with synchronous XMLHttpRequest (the stag-settings launcher sets QML_XHR_ALLOW_FILE_READ/WRITE,
+// written with XMLHttpRequest (the stag-settings launcher sets QML_XHR_ALLOW_FILE_READ/WRITE,
 // the stock `qml` runtime has no other way to touch files). Every change is saved at once.
 import "ini.js" as Ini
 
@@ -26,17 +26,41 @@ QtObject {
         return x.responseText === undefined ? "" : x.responseText
     }
 
+    // The qml runtime only writes local files with an asynchronous PUT (a synchronous one silently does
+    // nothing), and the status is always 0, so every write is read back to see whether it landed.
+    // Writes run one at a time; a newer write to the same path replaces one that has not started yet.
+    property var queue: []
+    property bool busy: false
+
     function writeFile(p, content) {
-        var x = new XMLHttpRequest()
-        try {
-            x.open("PUT", "file://" + p, false)
-            x.send(content)
-        } catch (e) {
-            lastError = "cannot write " + p + ": " + e
-            console.warn(lastError)
-            return false
-        }
+        for (var i = 0; i < queue.length; i++)
+            if (queue[i].path === p) { queue[i].content = content; return true }
+        queue.push({ path: p, content: content })
+        if (!busy) pump()
         return true
+    }
+
+    function pump() {
+        if (queue.length === 0) { busy = false; return }
+        busy = true
+        var job = queue.shift()
+        var x = new XMLHttpRequest()
+        x.onreadystatechange = function () {
+            if (x.readyState !== 4) return
+            if (readFile(job.path) !== job.content) {
+                lastError = "cannot write " + job.path
+                console.warn(lastError)
+            }
+            pump()
+        }
+        try {
+            x.open("PUT", "file://" + job.path)
+            x.send(job.content)
+        } catch (e) {
+            lastError = "cannot write " + job.path + ": " + e
+            console.warn(lastError)
+            pump()
+        }
     }
 
     function load() {
@@ -54,7 +78,8 @@ QtObject {
         if (get(section, key) === v && Ini.get(text, section, key, null) !== null) return
         var t = Ini.set(text, section, key, v)
         if (t === text) return
-        if (writeFile(path, t)) { text = t; rev++ }
+        text = t; rev++
+        writeFile(path, t)
     }
 
     // ---- dock launchers ----

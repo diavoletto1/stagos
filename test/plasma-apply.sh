@@ -105,6 +105,7 @@ check "plasma up: --reset-layout reloads the layout" grep -q loadLookAndFeelDefa
 
 # ---- stag-settings-apply (the path unit's service) ----
 sandbox; mkdir -p "$HOME/.local/state/stagos"
+# shellcheck disable=SC2016  # literal $* for the fake script
 printf '#!/bin/sh\necho "stag-plasma-apply $*" >> "$FAKE_LOG"\n' > "$T/bin/stag-plasma-apply"; chmod +x "$T/bin/stag-plasma-apply"
 "$WRAP"
 check "settings-apply: plain change runs --quiet only" bash -c "grep -qx 'stag-plasma-apply --quiet' '$FAKE_LOG' && ! grep -q reset-layout '$FAKE_LOG'"
