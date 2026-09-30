@@ -31,7 +31,10 @@ kwinrc|org.kde.kdecoration2|ButtonsOnLeft|
 kwinrc|org.kde.kdecoration2|ButtonsOnRight|IAX
 kwinrc|org.kde.kdecoration2|BorderSize|Tiny
 kwinrc|org.kde.kdecoration2|BorderSizeAuto|false
-breezerc|Common|OutlineIntensity|OutlineLow
+# window edges on the black desktop: Breeze's 1 px outline (Medium: about #2a2a2a around a #0a0a0a/#111111
+# title bar; drawn with the window shadow, so it needs KWin's OpenGL compositing) and the active window's title
+# bar in the surface color #111111 (StagOS.colors [Colors:Header]), inactive ones stay #0a0a0a
+breezerc|Common|OutlineIntensity|OutlineMedium
 breezerc|Common|ShadowSize|ShadowSmall
 breezerc|Common|ShadowStrength|90
 breezerc|Windeco|ButtonSize|ButtonSmall

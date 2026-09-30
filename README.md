@@ -130,6 +130,7 @@ manager, no SDDM): the LUKS passphrase stays the only login, tty1 autologin then
   `desktop.conf` in place; the `stagos-desktop-apply.path` user unit then runs `stag-plasma-apply`. Details:
   `desktop/plasma/settings/README.md`.
 - **KWin**: blur for panels/popups, no wobbly/magic lamp/translucency, animations at 0.7, drag to an edge tiles,
+  a 1 px hairline outline around windows and a slightly brighter title bar on the active one,
   Overview on **Meta+Tab** / **Ctrl+Up** / the 4-finger swipe, 4 desktops, click to focus, and every dock app
   remembers its window position and size (one KWin rule per app).
 - **Keys**: **Meta+Space** KRunner (Spotlight), **Meta+L** lock, **Print** region shot, Super+Shift+3/4/5 like labwc,

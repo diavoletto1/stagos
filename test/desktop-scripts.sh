@@ -221,6 +221,7 @@ unset STAGOS_PLASMA_DATA STAGOS_DESKTOP_CONF XDG_DATA_DIRS
 P="$ROOT/desktop/plasma"
 check "base.kconf: every line is file|group|key|value" bash -c "grep -vE '^(#|$)' '$P/base.kconf' | awk -F'|' 'NF < 4 { bad = 1 } END { exit bad }'"
 check "base.kconf: no hot corner, no wobbly/magic lamp/translucency" bash -c "grep -q '^kwinrc|Effect-overview|BorderActivate|9$' '$P/base.kconf' && for e in wobblywindows magiclamp translucency; do grep -q \"^kwinrc|Plugins|\${e}Enabled|false$\" '$P/base.kconf' || exit 1; done"
+check "window edges: active title bar #111111 over inactive #0a0a0a, Breeze outline Medium" bash -c "awk '/^\\[Colors:Header\\]\$/ {g = 1; next} /^\\[/ {g = 0} g && /^BackgroundNormal=17,17,17\$/ {ok = 1} END {exit !ok}' '$P/StagOS.colors' && grep -q '^breezerc|Common|OutlineIntensity|OutlineMedium\$' '$P/base.kconf'"
 check "StagOS.colors uses the contract palette" bash -c "grep -q 'BackgroundNormal=10,10,10' '$P/StagOS.colors' && grep -q 'DecorationFocus=200,16,46' '$P/StagOS.colors' && grep -q 'ForegroundNormal=240,240,240' '$P/StagOS.colors'"
 check "desktop.conf.default: contract sections" bash -c "for s in session bar dock effects recon; do grep -qx \"\\[\$s\\]\" '$P/desktop.conf.default' || exit 1; done"
 check "layout.js: dock dodges windows, bar is 26px" bash -c "grep -q 'dock.hiding = \"dodgewindows\"' '$P/layout.js' && grep -q 'bar.height = 26' '$P/layout.js'"
