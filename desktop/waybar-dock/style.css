@@ -13,7 +13,7 @@ window#waybar.dock {
 }
 tooltip { background: #0a0a0a; border: 1px solid #2a2a2a; }
 tooltip label { color: #d4d4d4; font-weight: 400; }
-#custom-apps, #custom-term, #custom-web, #custom-files, #custom-notes, #custom-code,
+#custom-apps, #custom-term, #custom-web, #custom-files, #custom-notes,
 #custom-music, #custom-claude, #custom-kismet, #custom-shark, #custom-mon {
   padding: 0 12px;
   margin: 7px 3px;
@@ -22,7 +22,7 @@ tooltip label { color: #d4d4d4; font-weight: 400; }
   border: 1px solid #2a2a2a;
 }
 #custom-apps:hover, #custom-term:hover, #custom-web:hover, #custom-files:hover, #custom-notes:hover,
-#custom-code:hover, #custom-music:hover, #custom-claude:hover, #custom-kismet:hover,
+#custom-music:hover, #custom-claude:hover, #custom-kismet:hover,
 #custom-shark:hover, #custom-mon:hover {
   color: #ffffff;
   border-color: #c8102e;

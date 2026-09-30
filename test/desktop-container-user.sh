@@ -77,7 +77,7 @@ t "claude launcher" grep -q 'chromium --app=https://claude.ai' "$HOME/.local/sha
 t "claude code CLI installed" test -x "$HOME/.local/bin/claude"
 t "empty-password keyring created" test -s "$HOME/.local/share/keyrings/login.keyring"
 t "keyring is plain-text (no password)" grep -q '^\[keyring\]' "$HOME/.local/share/keyrings/login.keyring"
-t "AUR names went to (fake) paru" grep -q 'visual-studio-code-bin' /tmp/fake-tools.log
+t "AUR names went to (fake) paru" grep -q 'onedrive-abraunegg' /tmp/fake-tools.log
 t "flathub ids went to (fake) flatpak" grep -q 'com.bambulab.BambuStudio' /tmp/fake-tools.log
 t "tlp.d not conflicting with ppd" bash -c "! pacman -Q power-profiles-daemon"
 t "capture-card NM drop-in untouched (module network)" bash -c "! test -e /etc/NetworkManager/conf.d/zz-stagos-mac.conf"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Daily apps. Official repos first; AUR via paru (VS Code, onedrive); Flathub for Bambu Studio and
+# Daily apps. Official repos first; AUR via paru (onedrive); Flathub for Bambu Studio and
 # LocalSend (both official Flathub apps; the AUR builds are heavy for this laptop).
 stagos_dm_apps() {
   # STAGOS_APPS_EXCLUDE: space separated packages to skip (small disks, container tests)
@@ -11,7 +11,7 @@ stagos_dm_apps() {
   local keep=() p
   for p in "${pkgs[@]}"; do [[ " ${STAGOS_APPS_EXCLUDE:-} " == *" $p "* ]] || keep+=("$p"); done
   dm_pkgs "${keep[@]}"
-  dm_aur visual-studio-code-bin onedrive-abraunegg
+  dm_aur onedrive-abraunegg
   # shellcheck disable=SC2086  # the id list is space separated on purpose
   dm_flatpak $STAGOS_FLATPAK_APPS
 
