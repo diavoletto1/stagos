@@ -66,11 +66,11 @@ kwinrc|NightColor|NightTemperature|3500
 # Meta+Space = KRunner (Spotlight). Alt+Space and Alt+F2 stay as KDE defaults.
 kglobalshortcutsrc|services/org.kde.krunner.desktop|_launch|Meta+Space\tAlt+Space\tAlt+F2\tSearch
 # Mission Control: Meta+Tab (Super+Tab) and Ctrl+Up; the 4-finger swipe is a KWin built-in. Not Meta+W:
-# keyd turns Super+W into Ctrl+W. Plasma's own Meta+Tab / Meta+Shift+Tab (walk through activities) are
-# cleared so the key has one owner (StagOS uses a single activity).
+# keyd turns Super+W into Ctrl+W. KWin 6.7 also puts Meta+Tab / Meta+Shift+Tab on its window switcher
+# (next to Alt+Tab): the switcher keeps Alt+Tab only, so Meta+Tab has one owner.
 kglobalshortcutsrc|kwin|Overview|Meta+Tab\tCtrl+Up,Meta+W,Toggle Overview
-kglobalshortcutsrc|plasmashell|next activity|none,Meta+Tab,Walk through activities
-kglobalshortcutsrc|plasmashell|previous activity|none,Meta+Shift+Tab,Walk through activities (Reverse)
+kglobalshortcutsrc|kwin|Walk Through Windows|Alt+Tab,Alt+Tab\tMeta+Tab,Walk Through Windows
+kglobalshortcutsrc|kwin|Walk Through Windows (Reverse)|Alt+Shift+Tab,Alt+Shift+Tab\tMeta+Shift+Tab,Walk Through Windows (Reverse)
 kglobalshortcutsrc|ksmserver|Lock Session|Meta+L\tScreensaver,Meta+L\tScreensaver,Lock Session
 # Print = region (like labwc), Super+Shift+3/4/5 like the labwc binds, spectacle's GUI on Meta+Shift+S
 kglobalshortcutsrc|services/org.kde.spectacle.desktop|_launch|Meta+Shift+S
