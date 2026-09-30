@@ -1,0 +1,18 @@
+# StagOS local (private) config. Copy to config/local.conf; that file is untracked (.gitignore).
+# Read by stagos-desktop modules `stag` and `snapshots`. Never commit real values.
+# shellcheck disable=SC2034  # sourced
+
+# ---- stag-* services (module: stag) ----
+# Each name below becomes a chromium --app launcher at <scheme>://<host>/<name>/
+STAGOS_STAG_HOST="CHANGEME.invalid"   # e.g. the tailnet name of the box that serves the stag-* apps
+STAGOS_STAG_SCHEME="https"
+STAGOS_STAG_PATHS=(tasks maps control lab media fitness)   # /tasks/ /maps/ /control/ /lab/ /media/ /fitness/
+
+# ---- backups (module: snapshots, only used when root is not btrfs) ----
+# restic repository, any backend restic supports: sftp:USER@HOST:/path, rest:https://HOST/path, s3:...
+STAGOS_RESTIC_REPO=""
+# file holding the repo password (chmod 600, outside this repo)
+STAGOS_RESTIC_PASSWORD_FILE="$HOME/.config/stagos/restic.pass"
+# what to back up (space separated) and how often (systemd OnCalendar)
+STAGOS_RESTIC_PATHS="$HOME"
+STAGOS_RESTIC_SCHEDULE="daily"

@@ -4,7 +4,7 @@
 choice=$(printf 'Lock\nSleep\nLog out\nRestart\nShut down' \
   | fuzzel --dmenu --prompt 'power> ' --lines 5 --width 14)
 case "$choice" in
-  Lock)        swaylock ;;
+  Lock)        stag-lock ;;
   Sleep)       systemctl suspend ;;
   "Log out")   pkill -x labwc ;;
   Restart)     systemctl reboot ;;

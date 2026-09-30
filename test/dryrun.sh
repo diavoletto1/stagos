@@ -22,3 +22,9 @@ DRY_RUN=1 ./provision.sh
 
 echo; echo "== provision.sh (dry, mock card wlan1) =="
 DRY_RUN=1 STAGOS_MOCK_WIFI=wlan1 STAGOS_CAPTURE_IFACE=wlan1 ./provision.sh
+
+echo; echo "== stagos-desktop (dry, all modules) =="
+DRY_RUN=1 ./stagos-desktop
+
+echo; echo "== desktop helper unit tests =="
+./test/desktop-scripts.sh

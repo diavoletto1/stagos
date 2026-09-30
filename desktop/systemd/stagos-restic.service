@@ -1,0 +1,10 @@
+[Unit]
+Description=StagOS restic backup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Nice=15
+IOSchedulingClass=idle
+ExecStart=%h/.local/bin/stagos-backup

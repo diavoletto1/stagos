@@ -1,5 +1,7 @@
 <?xml version="1.0"?>
-<!-- StagOS labwc config: floating windows with real title bars, edge snapping. -->
+<!-- StagOS labwc config: floating windows with real title bars, edge snapping, 4 workspaces.
+     Super = Cmd. keyd (module `keys`) turns Super+C/V/X/Z/A/Q/W/T/F/S into Ctrl shortcuts, so
+     labwc must not bind those; window close is Alt+F4, fullscreen is Super+F11. -->
 <labwc_config>
   <theme>
     <name>StagOS</name>
@@ -21,30 +23,74 @@
     <topMaximize>yes</topMaximize>
   </snapping>
 
+  <desktops>
+    <number>4</number>
+  </desktops>
+
+  <!-- trackpad: tap to click, natural scroll, two-finger right click, palm rejection -->
+  <libinput>
+    <device category="touchpad">
+      <tap>yes</tap>
+      <tapButtonMap>lrm</tapButtonMap>
+      <tapAndDrag>yes</tapAndDrag>
+      <naturalScroll>yes</naturalScroll>
+      <clickMethod>clickfinger</clickMethod>
+      <disableWhileTyping>yes</disableWhileTyping>
+      <middleEmulation>no</middleEmulation>
+      <pointerSpeed>0.3</pointerSpeed>
+      <accelProfile>adaptive</accelProfile>
+    </device>
+  </libinput>
+
   <keyboard>
     <default />
+    <!-- apps and launchers -->
     <keybind key="W-Return"><action name="Execute" command="foot"/></keybind>
+    <keybind key="W-space"><action name="Execute" command="fuzzel"/></keybind>
+    <keybind key="W-S-space"><action name="Execute" command="stag-spotlight"/></keybind>
     <keybind key="W-d"><action name="Execute" command="fuzzel"/></keybind>
-    <keybind key="W-a"><action name="Execute" command="stag-dock"/></keybind>
+    <keybind key="W-S-d"><action name="Execute" command="stag-dock"/></keybind>
     <keybind key="W-e"><action name="Execute" command="thunar"/></keybind>
     <keybind key="W-b"><action name="Execute" command="firefox"/></keybind>
-    <keybind key="W-v"><action name="Execute" command="sh -c 'cliphist list | fuzzel --dmenu | cliphist decode | wl-copy'"/></keybind>
-    <keybind key="W-S-s"><action name="Execute" command="sh -c 'grim -g &quot;$(slurp)&quot; - | swappy -f -'"/></keybind>
-    <keybind key="W-q"><action name="Close"/></keybind>
-    <keybind key="W-l"><action name="Execute" command="swaylock"/></keybind>
+    <keybind key="W-S-v"><action name="Execute" command="stag-clip pick"/></keybind>
+    <keybind key="W-g"><action name="Execute" command="swaync-client -t -sw"/></keybind>
+    <keybind key="W-S-n"><action name="Execute" command="swaync-client -d -sw"/></keybind>
+    <keybind key="W-l"><action name="Execute" command="stag-lock"/></keybind>
     <keybind key="W-Escape"><action name="Execute" command="stag-power"/></keybind>
-    <keybind key="W-f"><action name="ToggleMaximize"/></keybind>
+
+    <!-- windows (Cmd+Q/W/F live in keyd) -->
+    <keybind key="A-F4"><action name="Close"/></keybind>
+    <keybind key="W-F11"><action name="ToggleFullscreen"/></keybind>
     <keybind key="W-Left"><action name="SnapToEdge" direction="left"/></keybind>
     <keybind key="W-Right"><action name="SnapToEdge" direction="right"/></keybind>
-    <keybind key="W-Up"><action name="Maximize"/></keybind>
+    <keybind key="W-Up"><action name="ToggleMaximize"/></keybind>
     <keybind key="W-Down"><action name="Iconify"/></keybind>
+    <keybind key="W-Tab"><action name="NextWindow"/></keybind>
     <keybind key="A-Tab"><action name="NextWindow"/></keybind>
-    <keybind key="XF86_MonBrightnessUp"><action name="Execute" command="brightnessctl set +5%"/></keybind>
-    <keybind key="XF86_MonBrightnessDown"><action name="Execute" command="brightnessctl set 5%-"/></keybind>
-    <keybind key="XF86_AudioRaiseVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"/></keybind>
-    <keybind key="XF86_AudioLowerVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"/></keybind>
-    <keybind key="XF86_AudioMute"><action name="Execute" command="wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"/></keybind>
-    <keybind key="Print"><action name="Execute" command="sh -c 'd=$HOME/Pictures/Screenshots; mkdir -p &quot;$d&quot;; f=&quot;$d/$(date +%F_%H-%M-%S).png&quot;; grim -g &quot;$(slurp)&quot; &quot;$f&quot; &amp;&amp; wl-copy &lt; &quot;$f&quot; &amp;&amp; notify-send Screenshot &quot;$f&quot;'"/></keybind>
+
+    <!-- workspaces (the trackpad swipe sends these) -->
+    <keybind key="C-A-Left"><action name="GoToDesktop" to="left" wrap="no"/></keybind>
+    <keybind key="C-A-Right"><action name="GoToDesktop" to="right" wrap="no"/></keybind>
+    <keybind key="C-A-S-Left"><action name="SendToDesktop" to="left" wrap="no"/></keybind>
+    <keybind key="C-A-S-Right"><action name="SendToDesktop" to="right" wrap="no"/></keybind>
+
+    <!-- screenshots and recording -->
+    <keybind key="W-S-3"><action name="Execute" command="stag-screenshot full"/></keybind>
+    <keybind key="W-S-4"><action name="Execute" command="stag-screenshot region"/></keybind>
+    <keybind key="W-S-5"><action name="Execute" command="stag-record"/></keybind>
+    <keybind key="W-S-6"><action name="Execute" command="stag-screenshot edit"/></keybind>
+    <keybind key="Print"><action name="Execute" command="stag-screenshot region"/></keybind>
+
+    <!-- media keys (OSD via SwayOSD, plain wpctl/brightnessctl if it is not installed) -->
+    <keybind key="XF86_AudioRaiseVolume"><action name="Execute" command="sh -c 'swayosd-client --output-volume raise || wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+'"/></keybind>
+    <keybind key="XF86_AudioLowerVolume"><action name="Execute" command="sh -c 'swayosd-client --output-volume lower || wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-'"/></keybind>
+    <keybind key="XF86_AudioMute"><action name="Execute" command="sh -c 'swayosd-client --output-volume mute-toggle || wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle'"/></keybind>
+    <keybind key="XF86_AudioMicMute"><action name="Execute" command="sh -c 'swayosd-client --input-volume mute-toggle || wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle'"/></keybind>
+    <keybind key="XF86_MonBrightnessUp"><action name="Execute" command="sh -c 'swayosd-client --brightness raise || brightnessctl set +5%'"/></keybind>
+    <keybind key="XF86_MonBrightnessDown"><action name="Execute" command="sh -c 'swayosd-client --brightness lower || brightnessctl set 5%-'"/></keybind>
+    <keybind key="XF86_AudioPlay"><action name="Execute" command="playerctl play-pause"/></keybind>
+    <keybind key="XF86_AudioNext"><action name="Execute" command="playerctl next"/></keybind>
+    <keybind key="XF86_AudioPrev"><action name="Execute" command="playerctl previous"/></keybind>
   </keyboard>
 
   <mouse>

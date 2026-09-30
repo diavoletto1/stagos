@@ -2,7 +2,7 @@
 <!-- StagOS root menu (right-click the desktop) -->
 <openbox_menu>
   <menu id="power-menu" label="Power">
-    <item label="Lock"><action name="Execute" command="swaylock"/></item>
+    <item label="Lock"><action name="Execute" command="stag-lock"/></item>
     <item label="Sleep"><action name="Execute" command="systemctl suspend"/></item>
     <item label="Log out"><action name="Exit"/></item>
     <item label="Restart"><action name="Execute" command="systemctl reboot"/></item>
