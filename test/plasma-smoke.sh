@@ -107,7 +107,9 @@ for i, c in enumerate(px + [None]):
   # shellcheck disable=SC1091
   [ -f "$out/experiment.sh" ] && . "$out/experiment.sh"
 
-  # Overview (Mission Control): Meta+Tab owns the key (no activity switcher on it)
+  # Overview (Mission Control): Meta+Tab must have one owner (checked in kglobalshortcutsrc). The effect itself needs
+  # OpenGL: without a render node KWin composites with QPainter, Overview/blur/shadows do not load and the shot
+  # only shows the key reaching the window.
   log "global shortcuts on Tab / Overview:"; grep -nE 'Tab|^Overview|activity' "$HOME/.config/kglobalshortcutsrc" | sed 's/^/  /'
   DISPLAY=:5 xdotool key super+Tab; sleep 4; shot overview
   if cmp -s <(magick "$out/$SHOT_PREFIX-overview.png" -resize 64x36 txt:- 2>/dev/null) <(magick "$out/$SHOT_PREFIX-window.png" -resize 64x36 txt:- 2>/dev/null); then
