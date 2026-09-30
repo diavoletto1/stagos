@@ -59,6 +59,37 @@ function stagosSyncDock(groups) {
     print("dock: updated");
 }
 
+// [bar] appmenu: add or remove the global menu applet in the StagOS top bar. A new one goes right after
+// the STAG menu: the panel keeps its applet order in [General] AppletOrder ("id;id;..."), reloaded here.
+function stagosSyncAppmenu(want) {
+    var bar = stagosFindPanel("bar");
+    if (bar === null) {
+        print("\nappmenu: no StagOS top bar (run stag-plasma-apply --reset-layout to recreate it)");
+        return;
+    }
+    var have = bar.widgets("org.kde.plasma.appmenu");
+    if (!want) {
+        have.forEach(function (w) { w.remove(); });
+        print(have.length > 0 ? "\nappmenu: removed" : "\nappmenu: unchanged");
+        return;
+    }
+    if (have.length > 0) {
+        print("\nappmenu: unchanged");
+        return;
+    }
+    var added = String(bar.addWidget("org.kde.plasma.appmenu").id);
+    bar.currentConfigGroup = ["General"];
+    var order = String(bar.readConfig("AppletOrder", "")).split(";").filter(function (id) {
+        return id !== "" && id !== added;
+    });
+    var menus = bar.widgets("org.stagos.menu");
+    var at = menus.length > 0 ? order.indexOf(String(menus[0].id)) + 1 : 0;
+    order.splice(at, 0, added);
+    bar.writeConfig("AppletOrder", order.join(";"));
+    bar.reloadConfig();
+    print("\nappmenu: added");
+}
+
 // --session / first run: is the StagOS layout already in place?
 function stagosHasLayout() {
     print(stagosFindPanel("bar") !== null && stagosFindPanel("dock") !== null ? "stagos-layout: yes" : "stagos-layout: no");

@@ -21,7 +21,10 @@ bar.writeConfig("stagosRole", "bar");
 // the STAG menu (org.stagos.menu, p2): about, settings, stag apps, session actions
 bar.addWidget("org.stagos.menu");
 // END_STAGOS_WIDGET menu
-bar.addWidget("org.kde.plasma.appmenu");
+// the global menu, unless [bar] appmenu=false (stag-plasma-apply adds/removes it live later)
+if (typeof STAGOS_APPMENU === "undefined" || STAGOS_APPMENU) {
+    bar.addWidget("org.kde.plasma.appmenu");
+}
 bar.addWidget("org.kde.plasma.panelspacer");
 // STAGOS_WIDGET status
 // Stock system tray for third-party tray icons only (Spotify, Obsidian, ...). Plasma's own network, volume,

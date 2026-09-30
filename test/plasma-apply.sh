@@ -72,6 +72,14 @@ check "dock: a remember rule per dock app" bash -c "kreadconfig6 --file kwinrule
 conf '[dock]' 'launchers='
 check "dock: empty list is fine" bash -c "'$APPLY' --quiet >/dev/null 2>&1 && grep -q 'var STAGOS_DOCK = \[\[\]\];' '$(LAY)'"
 
+conf '[bar]' 'appmenu=false'
+"$APPLY" --quiet >/dev/null 2>&1
+check "appmenu=false: the first-start layout leaves it out" grep -q '^var STAGOS_APPMENU = false;' "$(LAY)"
+conf '[bar]' 'appmenu=true'
+"$APPLY" --quiet >/dev/null 2>&1
+check "appmenu=true: the first-start layout has it" grep -q '^var STAGOS_APPMENU = true;' "$(LAY)"
+check "layout.js: appmenu only when STAGOS_APPMENU allows it" grep -q 'STAGOS_APPMENU' "$ROOT/desktop/plasma/layout.js"
+
 # ---- --dry-run writes nothing ----
 sandbox; conf '[effects]' 'blur=false'
 before="$(hashes "$HOME")"
@@ -100,6 +108,9 @@ sandbox up; conf '[effects]' 'blur=true'
 check "plasma up: KWin reconfigured" grep -q '^qdbus6 org.kde.KWin /KWin reconfigure' "$FAKE_LOG"
 : > "$FAKE_LOG"; "$APPLY" --quiet >/dev/null 2>&1
 check "plasma up: later runs sync the dock, never reload the layout" bash -c "grep -q stagosSyncDock '$FAKE_LOG' && ! grep -q loadLookAndFeel '$FAKE_LOG'"
+check "plasma up: later runs sync the appmenu live" bash -c "grep -q 'stagosSyncAppmenu(STAGOS_APPMENU)' '$FAKE_LOG' && grep -q 'var STAGOS_APPMENU = true;' '$FAKE_LOG'"
+conf '[bar]' 'appmenu=false'; : > "$FAKE_LOG"; "$APPLY" --quiet >/dev/null 2>&1
+check "plasma up: appmenu=false reaches the shell" grep -q 'var STAGOS_APPMENU = false;' "$FAKE_LOG"
 : > "$FAKE_LOG"; "$APPLY" --quiet --reset-layout >/dev/null 2>&1
 check "plasma up: --reset-layout reloads the layout" grep -q loadLookAndFeelDefaultLayout "$FAKE_LOG"
 
