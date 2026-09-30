@@ -132,6 +132,10 @@ for i, c in enumerate(px + [None]):
     open_widget org.stagos.menu || DISPLAY=:5 xdotool mousemove 20 12 click 1; sleep 2
   fi
 
+  # Night Light against the real KWin (D-Bus properties, Mode=Constant); X11-nested KWin may report it unavailable
+  log "night light: $(stag-ctl night status) -> on: $(stag-ctl night on) -> $(sleep 2; stag-ctl night status) -> off: $(stag-ctl night off)"
+  log "kwinrc NightColor: $(kreadconfig6 --file kwinrc --group NightColor --key Mode) / $(kreadconfig6 --file kwinrc --group NightColor --key Active)"
+
   # notifications: popups must show with the notifications applet hidden in the tray, and not with DND on
   notify-send -a StagOS "StagOS smoke" "notification popup with the tray applet hidden"; sleep 3; shot notify
   stag-ctl dnd on > "$out/dnd.json"; sleep 2
@@ -139,7 +143,7 @@ for i, c in enumerate(px + [None]):
   stag-ctl dnd off >/dev/null
 
   # [bar] appmenu: live off/on; a Qt app with a menu bar exports it to the global menu
-  log "bar before: $(bar_order)"
+  log "bar before: $(bar_order); STAG menu geometry: $(js "$dockjs"'; var m = stagosFindPanel("bar").widgets("org.stagos.menu")[0]; print(JSON.stringify(m.geometry));' 2>&1 | tail -1)"
   "$(command -v qdbusviewer6 || echo /usr/lib/qt6/bin/qdbusviewer)" >/dev/null 2>&1 & pids+=($!)
   sleep 8; shot appmenu-on-start; crop_bar appmenu-on-start
   appmenu false; sleep 3; log "bar appmenu=false: $(bar_order)"; shot appmenu-off; crop_bar appmenu-off
