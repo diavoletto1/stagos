@@ -5,7 +5,7 @@ phase="${1:-install}"; shift || true
 export STAGOS_APPS_EXCLUDE="blender freecad libreoffice-fresh qemu-desktop virt-manager"   # multi-GB; names are checked to resolve
 export STAGOS_KEYRING_EMPTY=1
 
-if [[ "$phase" != verify ]]; then
+if true; then
   pacman -Sy --noconfirm >/dev/null
   pacman -S --needed --noconfirm sudo git shellcheck libxml2 systemd python >/dev/null 2>&1
   useradd -m -G wheel -s /bin/bash jack 2>/dev/null || true

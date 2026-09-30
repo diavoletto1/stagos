@@ -13,7 +13,7 @@ if [[ "$phase" == modules ]]; then
   echo "RESULT (subset): stagos-desktop exit $rc"; exit "$rc"
 fi
 
-if [[ "$phase" == install ]]; then
+if [[ "$phase" == install || "$phase" == all ]]; then
 sec "static: shellcheck / xml / json / keyd"
 t "shellcheck clean" shellcheck -x -s bash stagos-desktop lib/*.sh provision/desktop/*.sh desktop/bin/*.sh test/*.sh config/local.conf.example
 t "xmllint labwc+fontconfig" xmllint --noout desktop/labwc/*.xml desktop/fontconfig/fonts.conf
@@ -43,8 +43,7 @@ sec "REAL run 1 (all modules)"
 ./stagos-desktop > /tmp/run1.log 2>&1; t "run 1 exits 0" test $? -eq 0
 tail -12 /tmp/run1.log
 echo; echo "INSTALL PHASE: $pass passed, $fail failed"
-[ "$fail" -eq 0 ]
-exit
+if [[ "$phase" == install ]]; then [ "$fail" -eq 0 ]; exit; fi
 fi
 
 sec "REAL run 2 (idempotency: nothing may change)"

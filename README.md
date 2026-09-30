@@ -106,8 +106,7 @@ Set it in `config/stagos.conf` (or the environment) and run `./stagos-desktop ke
 
 ```
 ./test/desktop-scripts.sh                    # helper scripts + config invariants, no root, fakes from test/fixtures/bin
-./test/desktop-container.sh install          # rootless podman Arch: shellcheck, dry run, real run of every module
-./test/desktop-container.sh verify           # 2nd run must change 0 files, per-module reruns, config validation, headless labwc/waybar/swaync
+./test/desktop-container.sh all              # rootless podman Arch: shellcheck, dry run, real run, 2nd run must change 0 files, per-module reruns, config validation, headless labwc/waybar/swaync, btrfs branch
 ./test/desktop-container.sh clean            # remove the image and package cache
 ```
 
