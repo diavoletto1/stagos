@@ -1,0 +1,12 @@
+{
+    "KPackageStructure": "Plasma/Theme",
+    "KPlugin": {
+        "Authors": [{ "Name": "StagOS" }],
+        "Description": "StagOS HUD: flat #0a0a0a panels, hairline borders, 3px corners. Everything else falls back to Breeze.",
+        "Id": "StagOS",
+        "License": "MIT",
+        "Name": "StagOS",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=StagOS Plasma apply
+Comment=First-login StagOS layout and panel scale, dock launchers from desktop.conf
+Exec=stag-plasma-apply --session --quiet
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-phase=2

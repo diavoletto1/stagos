@@ -1,0 +1,11 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [{ "Name": "StagOS" }],
+        "Description": "StagOS HUD: top bar with global menu, floating dock, no desktop icons. Lock screen and splash fall back to Breeze.",
+        "Id": "org.stagos.desktop",
+        "License": "MIT",
+        "Name": "StagOS",
+        "Version": "1.0"
+    }
+}

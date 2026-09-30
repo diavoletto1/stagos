@@ -1,0 +1,32 @@
+# StagOS desktop settings: ~/.config/stagos/desktop.conf (the single source of truth for the
+# StagOS Settings app, stag-session and stag-plasma-apply). Missing file or key = the value here.
+# First version by p1 (Plasma base); p3 (settings) owns and finalizes this file.
+[session]
+# plasma | labwc (stag-session start picks it on tty1; stag-session labwc|plasma sets it)
+default=plasma
+
+[bar]
+stag_menu=true
+appmenu=true
+recon=true
+stagbot=true
+cpu=true
+ram=true
+temp=true
+net=true
+bt=true
+vol=true
+bat=true
+clock=true
+clock_format=ddd d MMM  HH:mm
+
+[dock]
+# .desktop ids, ";" separated; "|" is a separator; missing .desktop files are skipped
+launchers=foot.desktop;chromium.desktop;thunar.desktop;obsidian.desktop;spotify-launcher.desktop;claude.desktop;|;stag-kismet.desktop;org.wireshark.Wireshark.desktop;stag-mon.desktop
+
+[effects]
+blur=true
+animation_factor=0.7
+
+[recon]
+capture_iface=
