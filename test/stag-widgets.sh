@@ -130,7 +130,9 @@ jcheck "dnd: fractional seconds parse" "$(stag-ctl dnd status)" '.on == true'
 new
 fake_state plasma yes
 jcheck "night off" "$(stag-ctl night status)" '.on == false and .running == false'
-jcheck "night on via kwinrc, KWin reports it" "$(stag-ctl night on)" '.on == true and .running == true and .temp == 4500'
+fake_state night_now no   # daytime: a sunset schedule would not warm the screen yet
+jcheck "night on via kwinrc, warm right away (daytime)" "$(stag-ctl night on)" '.on == true and .running == true and .temp == 4500'
+check "night on: Mode=Constant (Mac style, not the schedule)" grep -q -- 'kwriteconfig6 --file kwinrc --group NightColor --key Mode --notify Constant' "$FAKE_LOG"
 check "night on: bool with --notify" grep -q -- 'kwriteconfig6 --file kwinrc --group NightColor --key Active --type bool --notify true' "$FAKE_LOG"
 jcheck "night toggle -> off" "$(stag-ctl night toggle)" '.on == false'
 fake_state plasma no

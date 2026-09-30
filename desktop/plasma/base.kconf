@@ -58,6 +58,9 @@ kwinrc|Windows|FocusPolicy|ClickToFocus
 kwinrc|Windows|ElectricBorderMaximize|true
 kwinrc|Windows|ElectricBorderTiling|true
 kwinrc|Windows|RollOverDesktops|false
+# Night Light: the Control Center toggle sets Mode=Constant (warm now, until turned off); same warmth as
+# labwc's wlsunset (STAGOS_NIGHT_TEMP default)
+kwinrc|NightColor|NightTemperature|3500
 
 # ---- shortcuts (mirrors desktop/labwc/rc.xml where Plasma has an equivalent) ----
 # Meta+Space = KRunner (Spotlight). Alt+Space and Alt+F2 stay as KDE defaults.

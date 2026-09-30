@@ -82,7 +82,7 @@ Item {
                 iconName: "redshift-status-on"
                 checked: cc.isOn("night")
                 available: cc.works("night")
-                subtitle: !cc.works("night") ? "Unavailable" : !cc.isOn("night") ? "Off" : (cc.s.night.running ? "On  " + cc.s.night.temp + "K" : "On at sunset")
+                subtitle: !cc.works("night") ? "Unavailable" : !cc.isOn("night") ? "Off" : (cc.s.night.running && cc.s.night.temp > 0 ? "On  " + cc.s.night.temp + "K" : "On")
                 onToggled: cc.plasmoidRoot.act("night toggle", "night")
             }
         }

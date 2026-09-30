@@ -70,7 +70,7 @@ case "$name" in
         [ "$(st plasma no)" = yes ] || exit 1
         case "$3" in
           *.enabled) [ "$(kc_get NightColor Active kwinrc)" = true ] && echo true || echo false ;;
-          *.running) [ "$(kc_get NightColor Active kwinrc)" = true ] && [ "$(st night_now yes)" = yes ] && echo true || echo false ;;
+          *.running) [ "$(kc_get NightColor Active kwinrc)" = true ] && { [ "$(kc_get NightColor Mode kwinrc)" = Constant ] || [ "$(st night_now yes)" = yes ]; } && echo true || echo false ;;
           *.currentTemperature) [ "$(kc_get NightColor Active kwinrc)" = true ] && echo 4500 || echo 6500 ;;
         esac ;;
       "org.kde.ScreenBrightness /org/kde/ScreenBrightness")

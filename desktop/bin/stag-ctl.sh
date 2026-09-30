@@ -112,9 +112,9 @@ cmd_dnd() {
   dnd_status
 }
 
-# ---- night light: KWin Night Light (kwinrc [NightColor] Active, watched live by KWin; the state comes
-# from org.kde.KWin /org/kde/KWin/NightLight). "on" follows the Night Light schedule set in System
-# Settings (sunset to sunrise by default). Outside Plasma: stag-nightlight (wlsunset). ----
+# ---- night light: KWin Night Light (kwinrc [NightColor], watched live by KWin; the state comes from
+# org.kde.KWin /org/kde/KWin/NightLight). Mac style: "on" means warm now and until turned off
+# (Mode=Constant), not the sunset schedule. Outside Plasma: stag-nightlight (wlsunset). ----
 night_status() {
   local on="" run=false temp=0 v
   if v="$("$QDBUS" org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight.enabled 2>/dev/null)"; then
@@ -138,6 +138,9 @@ cmd_night() {
   cur="$(night_status | grep -o '"on":[a-z]*' | cut -d: -f2)"
   onoff "$cur" "$act"; want="$WANT"
   if stag_have kwriteconfig6 && plasma; then
+    if [ "$want" = true ]; then
+      kwriteconfig6 --file kwinrc --group NightColor --key Mode --notify Constant || fail 1 "kwriteconfig6 failed"
+    fi
     kwriteconfig6 --file kwinrc --group NightColor --key Active --type bool --notify "$want" || fail 1 "kwriteconfig6 failed"
   elif stag_have stag-nightlight; then
     stag-nightlight "$([ "$want" = true ] && echo start || echo stop)"
