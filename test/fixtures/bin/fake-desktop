@@ -64,11 +64,16 @@ case "$name" in
       previous) put track $(( $(st track 1) - 1 )) ;;
     esac ;;
   qdbus6)
+    # properties only through org.freedesktop.DBus.Properties.Get (like the real KWin / powerdevil objects:
+    # "SERVICE PATH IFACE.PROPERTY" is a method call there and fails)
+    m="$3"
+    if [ "$3" = org.freedesktop.DBus.Properties.Get ]; then m="$4.$5"
+    else case "$3" in *.enabled|*.running|*.currentTemperature|*.DisplaysDBusNames|*.MaxBrightness) exit 1 ;; esac; fi
     case "$1 $2" in
       "org.kde.KWin /KWin") [ "$(st plasma no)" = yes ] || exit 1 ;;
       "org.kde.KWin /org/kde/KWin/NightLight")
         [ "$(st plasma no)" = yes ] || exit 1
-        case "$3" in
+        case "$m" in
           *.enabled) [ "$(kc_get NightColor Active kwinrc)" = true ] && echo true || echo false ;;
           *.running) [ "$(kc_get NightColor Active kwinrc)" = true ] && { [ "$(kc_get NightColor Mode kwinrc)" = Constant ] || [ "$(st night_now yes)" = yes ]; } && echo true || echo false ;;
           *.currentTemperature) [ "$(kc_get NightColor Active kwinrc)" = true ] && echo 4500 || echo 6500 ;;
@@ -77,7 +82,7 @@ case "$name" in
         [ "$(st powerdevil no)" = yes ] || exit 1; echo display0 ;;
       "org.kde.ScreenBrightness /org/kde/ScreenBrightness/display0")
         [ "$(st powerdevil no)" = yes ] || exit 1
-        case "$3" in
+        case "$m" in
           *.MaxBrightness) cat "${FAKE_BL:?}/max_brightness" ;;
           *.SetBrightness) echo "$4" > "$FAKE_BL/brightness" ;;
         esac ;;

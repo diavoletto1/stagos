@@ -133,6 +133,7 @@ jcheck "night off" "$(stag-ctl night status)" '.on == false and .running == fals
 fake_state night_now no   # daytime: a sunset schedule would not warm the screen yet
 jcheck "night on via kwinrc, warm right away (daytime)" "$(stag-ctl night on)" '.on == true and .running == true and .temp == 4500'
 check "night on: Mode=Constant (Mac style, not the schedule)" grep -q -- 'kwriteconfig6 --file kwinrc --group NightColor --key Mode --notify Constant' "$FAKE_LOG"
+check "night: KWin state read as D-Bus properties (Properties.Get)" grep -q -- 'org.freedesktop.DBus.Properties.Get org.kde.KWin.NightLight running' "$FAKE_LOG"
 check "night on: bool with --notify" grep -q -- 'kwriteconfig6 --file kwinrc --group NightColor --key Active --type bool --notify true' "$FAKE_LOG"
 jcheck "night toggle -> off" "$(stag-ctl night toggle)" '.on == false'
 fake_state plasma no
@@ -155,6 +156,7 @@ jcheck "bright set via brightnessctl without powerdevil" "$(stag-ctl bright set 
 check "bright: brightnessctl used" grep -q 'brightnessctl -q set 30%' "$FAKE_LOG"
 fake_state powerdevil yes; : > "$FAKE_LOG"
 jcheck "bright set via powerdevil when it runs" "$(stag-ctl bright set 80)" '.percent == 80'
+check "bright: powerdevil displays and max read as D-Bus properties" bash -c "grep -q 'Properties.Get org.kde.ScreenBrightness DisplaysDBusNames' '$FAKE_LOG' && grep -q 'Properties.Get org.kde.ScreenBrightness.Display MaxBrightness' '$FAKE_LOG'"
 check "bright: powerdevil SetBrightness raw value, no OSD" bash -c "grep -q 'Display.SetBrightness 800 1' '$FAKE_LOG' && ! grep -q brightnessctl '$FAKE_LOG'"
 jcheck "bright set 0 keeps the screen on (1%)" "$(stag-ctl bright set 0)" '.percent == 1'
 rm -rf "$STAGOS_SYS/class/backlight/intel_backlight"

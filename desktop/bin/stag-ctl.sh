@@ -23,6 +23,9 @@ fail() { printf '{"error":"%s"}\n' "$(stag_json_esc "$2")"; exit "$1"; }
 need() { stag_have "$1" || fail 3 "$1 is not installed"; }
 detach() { setsid -f "$@" </dev/null >/dev/null 2>&1; }
 plasma() { [[ "${XDG_CURRENT_DESKTOP:-}" == *KDE* ]] || "$QDBUS" org.kde.KWin /KWin >/dev/null 2>&1; }
+prop() { # SERVICE PATH INTERFACE NAME: a D-Bus property (qdbus6 SERVICE PATH IFACE.NAME would call a method)
+  "$QDBUS" "$1" "$2" org.freedesktop.DBus.Properties.Get "$3" "$4" 2>/dev/null
+}
 WANT="" N=0
 onoff() { # current(true|false) arg -> WANT=true|false; exits 2 on junk
   case "$2" in on) WANT=true ;; off) WANT=false ;; toggle) if [ "$1" = true ]; then WANT=false; else WANT=true; fi ;; *) usage ;; esac
@@ -117,10 +120,10 @@ cmd_dnd() {
 # (Mode=Constant), not the sunset schedule. Outside Plasma: stag-nightlight (wlsunset). ----
 night_status() {
   local on="" run=false temp=0 v
-  if v="$("$QDBUS" org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight.enabled 2>/dev/null)"; then
+  if v="$(prop org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight enabled)"; then
     on="$v"
-    [ "$("$QDBUS" org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight.running 2>/dev/null)" = true ] && run=true
-    temp="$("$QDBUS" org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight.currentTemperature 2>/dev/null)"
+    [ "$(prop org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight running)" = true ] && run=true
+    temp="$(prop org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight currentTemperature)"
   elif stag_have kreadconfig6 && plasma; then
     on="$(kreadconfig6 --file kwinrc --group NightColor --key Active --default false 2>/dev/null)"
   elif stag_have stag-nightlight; then
@@ -199,8 +202,8 @@ cmd_bright() {
     set) [ $# -ge 2 ] || usage; pct "$2"; n="$N"; [ "$n" -lt 1 ] && n=1 ;;
     *) usage ;;
   esac
-  disp="$("$QDBUS" org.kde.ScreenBrightness /org/kde/ScreenBrightness org.kde.ScreenBrightness.DisplaysDBusNames 2>/dev/null | head -1)"
-  if [ -n "$disp" ] && max="$("$QDBUS" org.kde.ScreenBrightness "/org/kde/ScreenBrightness/$disp" org.kde.ScreenBrightness.Display.MaxBrightness 2>/dev/null)" \
+  disp="$(prop org.kde.ScreenBrightness /org/kde/ScreenBrightness org.kde.ScreenBrightness DisplaysDBusNames | head -1)"
+  if [ -n "$disp" ] && max="$(prop org.kde.ScreenBrightness "/org/kde/ScreenBrightness/$disp" org.kde.ScreenBrightness.Display MaxBrightness)" \
      && [[ "$max" =~ ^[0-9]+$ ]] && [ "$max" -gt 0 ]; then
     # flags 1 = no OSD (the slider is the feedback)
     "$QDBUS" org.kde.ScreenBrightness "/org/kde/ScreenBrightness/$disp" org.kde.ScreenBrightness.Display.SetBrightness \
