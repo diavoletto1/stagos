@@ -73,7 +73,7 @@ jobs:
             echo "::error::em dash (U+2014) in a changed file name"; fail=1
           fi
           # shellcheck disable=SC2086
-          added=$(git diff -U0 --no-color $diff_range | grep -E '^[+]' | grep -vE '^[+]{3} ' || true)
+          added=$(git diff -U0 --no-color $diff_range -- . ':(exclude,glob)**/vendor/**' ':(exclude,glob)**/*.min.js' | grep -E '^[+]' | grep -vE '^[+]{3} ' || true)
           if printf '%s\n' "$added" | grep -nF -- "$em"; then
             echo "::error::em dash (U+2014) in added lines above; use a hyphen, comma, or colon"; fail=1
           fi
