@@ -118,7 +118,8 @@ stagos_dm_plasma_settings() {
 stagos_plasma_leftovers() {
   # shellcheck source=lib/labwc-cleanup.sh
   source "$HERE/lib/labwc-cleanup.sh"
-  if [[ -n "$(lc_user_files)$(lc_bins)" ]] || { have pacman && pacman -Q "${STAGOS_LABWC_PKGS[@]}" 2>/dev/null | grep -q .; }; then
+  # packages: only those the cleanup would remove (one still required by something else is not a leftover)
+  if [[ -n "$(lc_user_files)$(lc_bins)" ]] || { have pacman && [[ -n "$(lc_removable 2>/dev/null)" ]]; }; then
     warn "files or packages of the old StagOS session are still here: ./stagos-desktop cleanup-labwc (backs configs up, asks before pacman -Rns)"
   fi
 }
