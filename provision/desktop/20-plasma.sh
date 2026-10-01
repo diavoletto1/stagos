@@ -113,11 +113,12 @@ stagos_dm_plasma_settings() {
   fi
 }
 
-# A box that ran the labwc-era StagOS still has its configs, coexistence files and packages: point at the cleanup.
+# A box from before StagOS went Plasma-only still has the old session's files or packages: point at the cleanup
+# (lib/labwc-cleanup.sh knows what they are).
 stagos_plasma_leftovers() {
-  local c; c="$(dm_cfg)"
-  if [[ -d "$c/labwc" || -d "$c/waybar" || -e "${XDG_DATA_HOME:-$HOME/.local/share}/dbus-1/services/org.freedesktop.Notifications.service" ]] \
-    || pacman -Q labwc >/dev/null 2>&1; then
-    warn "labwc-era StagOS files or packages are still here: ./stagos-desktop cleanup-labwc (backs configs up, asks before pacman -Rns)"
+  # shellcheck source=lib/labwc-cleanup.sh
+  source "$HERE/lib/labwc-cleanup.sh"
+  if [[ -n "$(lc_user_files)$(lc_bins)" ]] || { have pacman && pacman -Q "${STAGOS_LABWC_PKGS[@]}" 2>/dev/null | grep -q .; }; then
+    warn "files or packages of the old StagOS session are still here: ./stagos-desktop cleanup-labwc (backs configs up, asks before pacman -Rns)"
   fi
 }

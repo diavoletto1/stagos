@@ -56,7 +56,7 @@ fi
 EOF
 }
 
-# stagos_zprofile_sync FILE: replace any older StagOS autostart block (sway, labwc, stag-session) with
+# stagos_zprofile_sync FILE: replace any older StagOS autostart block (whatever session it started) with
 # the current one. Returns 0 when FILE changed, 1 when it was already current. Honours DRY_RUN.
 stagos_zprofile_sync() {
   local zp="$1" tmp

@@ -21,7 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WALL = os.path.join(ROOT, "desktop", "wall")
 FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/orbitron/Orbitron%5Bwght%5D.ttf"
 FONT = os.path.join(ROOT, "tools", ".cache", "Orbitron.ttf")
-BAR = 51  # waybar height in physical px (34 logical @ 1.5x)
+BAR = 51  # top bar offset in physical px (34 logical @ 1.5x); kept so regenerated walls match the shipped ones
 ORB_ZOOM = 1.4
 
 
