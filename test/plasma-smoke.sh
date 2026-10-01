@@ -37,7 +37,7 @@ export XDG_RUNTIME_DIR=/tmp/xdg-smoke XDG_CURRENT_DESKTOP=KDE KDE_FULL_SESSION=t
 export WAYLAND_DISPLAY=wayland-9 QT_QPA_PLATFORM=wayland
 install -d -m 700 "$XDG_RUNTIME_DIR"
 
-# shellcheck disable=SC2329  # run by name below (export -f session; dbus-run-session -- bash -c session)
+# shellcheck disable=SC2317,SC2329  # run by name below (export -f session; dbus-run-session -- bash -c session)
 session() {
   local xv kw ps ids t0 pids=()
   shot() { xwd -root -silent -display :5 | magick xwd:- "$out/$SHOT_PREFIX-$1.png" && log "shot $1"; }

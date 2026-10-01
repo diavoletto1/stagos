@@ -42,7 +42,7 @@ export FAKE_KEYD_LOG="$out/keyd-binds.log"; : > "$FAKE_KEYD_LOG"
 exec_start="$(sed -n 's/^ExecStart=//p' "$unit")"
 foot_rows="$(grep -vE '^\[|^#|^$' "/tmp/rows-foot" | paste -sd'|' | sed 's/|/ | /g')"
 
-# shellcheck disable=SC2329  # run by name below (export -f session; dbus-run-session -- bash -c session)
+# shellcheck disable=SC2317,SC2329  # run by name below (export -f session; dbus-run-session -- bash -c session)
 session() {
   local xv kw mp f1 f2 t0 n unit_env
   mapfile -t unit_env < <(sed -n 's/^Environment=//p' "$unit")
