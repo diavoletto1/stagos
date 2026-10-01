@@ -241,6 +241,8 @@ if [[ "$phase" == migrate ]]; then
   pacman -Qq | sort > /tmp/pkgs-after
   echo "pacman -Rns also removed (dependencies nothing else needs):"
   comm -23 /tmp/pkgs-before /tmp/pkgs-after | grep -vxF -f <(printf '%s\n' "${STAGOS_LABWC_PKGS[@]}") | tr '\n' ' '; echo
+  t "a dependency StagOS installs by name itself stays (gpsd: waybar pulled it in, the recon toolkit needs it)" \
+    bash -c "! grep -qx gpsd /tmp/pkgs-before || pacman -Q gpsd"
   t "the Plasma-only stag-session replaced the labwc-era one" cmp desktop/bin/stag-session.sh /usr/local/bin/stag-session
   t "stag-session --status after the cleanup: plasma (old default=labwc ignored)" bash -c "stag-session --status | grep -qx 'next=plasma'"
   t "nothing was kept back for a dependency" bash -c "! grep -q 'keeping ' /tmp/cleanup1.log"

@@ -200,7 +200,8 @@ installed back then still has its configs and packages. After `git pull`:
 deleted), moves the old helpers out of `/usr/local/bin` and installs the current `stag-session` (sudo; an old one
 would fall back to the removed labwc), and after a y/N question runs `sudo pacman -Rns` on
 the old packages that are installed and that nothing else needs (the list is `STAGOS_LABWC_PKGS` in
-`lib/labwc-cleanup.sh`). Run it again any time: it reports nothing left.
+`lib/labwc-cleanup.sh`). It also lists the dependencies `-s` takes along; one StagOS installs by name itself (gpsd,
+which waybar pulled in too) is marked explicitly installed first, so it stays. Run it again any time: it reports nothing left.
 
 ### Testing
 

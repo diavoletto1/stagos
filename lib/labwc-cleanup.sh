@@ -8,6 +8,8 @@
 #      stag-session is installed (a labwc-era one would fall back to the removed labwc).
 #   3. the labwc-era packages that are installed and that nothing outside the list requires (pacman -Qi
 #      Required By) are listed and removed with `sudo pacman -Rns` after a y/N question (ASSUME_YES=1 skips it).
+#      The dependencies -s would take along are listed too; any StagOS installs by name itself is first marked
+#      explicitly installed (pacman -D --asexplicit) so it stays.
 # shellcheck disable=SC2034  # the lists are read by the tests too
 
 # packages StagOS installed for the labwc session (60-desktop, 65-extras and the old modules bar, launcher,
@@ -105,12 +107,35 @@ lc_removable() {
   return 0
 }
 
+# lc_cascade PKG...: what `pacman -Rns PKG...` would take besides PKG... (dependencies nothing else needs).
+# pacman -p only prints, no root needed (and does not combine with -n).
+lc_cascade() {
+  LC_ALL=C pacman -Rsp --print-format '%n' "$@" 2>/dev/null | grep -vxF -f <(printf '%s\n' "$@")
+  return 0
+}
+
+# lc_protected PKG...: cascade packages StagOS installs by name elsewhere (install/, provision/, the modules), e.g.
+# gpsd, which waybar pulls in too. Marked explicitly installed before the removal, so pacman -Rns leaves them.
+lc_protected() {
+  local words p
+  words="$(cat "$HERE"/install/*.sh "$HERE"/provision/*.sh "$HERE"/provision/desktop/*.sh 2>/dev/null \
+    | grep -v '^[[:space:]]*#' | grep -oE '[A-Za-z0-9][A-Za-z0-9+._-]*' | sort -u)"
+  while read -r p; do
+    [[ -n "$p" ]] && grep -qxF -- "$p" <<< "$words" && echo "$p"
+  done < <(lc_cascade "$@")
+  return 0
+}
+
 stagos_cleanup_labwc() {
-  local files=() bins=() pkgs=() units=() f u
+  local files=() bins=() pkgs=() units=() deps=() prot=() f u
   LC_BACKUP="${STAGOS_LABWC_BACKUP:-${XDG_CACHE_HOME:-$HOME/.cache}/stagos-labwc-backup-$(date +%F)}"
   mapfile -t files < <(lc_user_files)
   mapfile -t bins < <(lc_bins)
   mapfile -t pkgs < <(lc_removable)
+  if [[ ${#pkgs[@]} -gt 0 ]]; then
+    mapfile -t prot < <(lc_protected "${pkgs[@]}")
+    mapfile -t deps < <(lc_cascade "${pkgs[@]}" | grep -vxF -f <(printf '%s\n' "${prot[@]}" ''))
+  fi
   # the caps-lock OSD backend was enabled system-wide by the old notify module
   if dm_have_systemd && systemctl is-enabled swayosd-libinput-backend.service >/dev/null 2>&1; then
     units+=(swayosd-libinput-backend.service)
@@ -124,7 +149,9 @@ stagos_cleanup_labwc() {
     for f in "${bins[@]}"; do printf '  sudo mv  %s\n' "$f"; done
     printf '  sudo install %s (the Plasma-only one, when it differs)\n' "${STAGOS_LOCAL_BIN:-/usr/local/bin}/stag-session"
     for u in "${units[@]}"; do printf '  sudo systemctl disable --now %s\n' "$u"; done
+    [[ ${#prot[@]} -gt 0 ]] && printf '  sudo pacman -D --asexplicit %s   (StagOS installs these itself: -Rns must not take them)\n' "${prot[*]}"
     [[ ${#pkgs[@]} -gt 0 ]] && printf '  sudo pacman -Rns %s\n' "${pkgs[*]}"
+    [[ ${#deps[@]} -gt 0 ]] && printf '    (-s also takes their unneeded dependencies: %s)\n' "${deps[*]}"
   fi
 
   for f in "${files[@]}"; do lc_stash "$f"; done
@@ -141,10 +168,16 @@ stagos_cleanup_labwc() {
 
   if [[ ${#pkgs[@]} -gt 0 ]]; then
     if dm_dry; then
+      [[ ${#prot[@]} -gt 0 ]] && run sudo pacman -D --asexplicit "${prot[@]}"
       run sudo pacman -Rns "${pkgs[@]}"
     elif confirm "remove ${#pkgs[@]} labwc-era package(s) with pacman -Rns (Plasma and the kept modules need none of them)?"; then
-      if [[ "${ASSUME_YES:-0}" == 1 ]]; then sudo pacman -Rns --noconfirm "${pkgs[@]}"; else sudo pacman -Rns "${pkgs[@]}"; fi \
-        || warn "pacman -Rns failed; rerun ./stagos-desktop cleanup-labwc"
+      if [[ ${#prot[@]} -gt 0 ]] && ! sudo pacman -D --asexplicit "${prot[@]}"; then
+        warn "pacman -D --asexplicit ${prot[*]} failed: packages kept (-Rns would take those too); rerun ./stagos-desktop cleanup-labwc"
+      elif [[ "${ASSUME_YES:-0}" == 1 ]]; then
+        sudo pacman -Rns --noconfirm "${pkgs[@]}" || warn "pacman -Rns failed; rerun ./stagos-desktop cleanup-labwc"
+      else
+        sudo pacman -Rns "${pkgs[@]}" || warn "pacman -Rns failed; rerun ./stagos-desktop cleanup-labwc"
+      fi
     else
       log "packages kept; rerun ./stagos-desktop cleanup-labwc to remove them"
     fi

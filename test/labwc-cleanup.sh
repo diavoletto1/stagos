@@ -55,6 +55,8 @@ plasma-desktop
 foot
 keyd
 DB
+# what -Rns would take along: gpsd (the recon toolkit installs it by name: must stay) and a plain library
+printf 'gpsd\nlibfoo-unneeded\n' > "$FAKE_DIR/cascade"
 cp "$FAKE_DIR/pacman.db" "$T/db0"
 snap() { (cd "$HOME" && find . -path ./.cache -prune -o -print | sort; cat .zprofile) > "$1"; ls "$STAGOS_LOCAL_BIN" >> "$1"; cat "$FAKE_DIR/pacman.db" >> "$1"; }
 
@@ -78,6 +80,9 @@ check "empty drop-in and theme dirs removed, others kept" bash -c "test ! -e '$C
 check "kept: own autostart entries, StagOS Plasma files, foot, desktop.conf" bash -c "test -s '$C/autostart/mine.desktop' && test -s '$C/autostart/stag-plasma-apply.desktop' && test -s '$C/foot/foot.ini' && test -s '$C/stagos/desktop.conf'"
 check "kept: helpers that are not StagOS copies, and the recon helpers" bash -c "test -s '$STAGOS_LOCAL_BIN/stag-power' && test -s '$STAGOS_LOCAL_BIN/stag-kismet'"
 check "pacman -Rns got exactly the removable labwc-era packages" bash -c "grep -qx 'pacman -Rns --noconfirm labwc waybar fuzzel mako swaync qt6ct blueman network-manager-applet' '$FAKE_LOG'"
+check "the listing shows what -s takes along" grep -q 'also takes their unneeded dependencies: libfoo-unneeded)' "$T/run1.log"
+check "a cascade package StagOS installs itself (gpsd) is marked explicit before -Rns, nothing else" \
+  bash -c "grep -E '^pacman -(D|Rns) ' '$FAKE_LOG' | cut -d' ' -f2- | tr '\n' '|' | grep -qx -- '-D --asexplicit gpsd|-Rns --noconfirm [^|]*|'"
 check "a package still required outside the list is kept" bash -c "grep -q 'keeping nm-connection-editor: required by some-other-app' '$T/run1.log' && grep -q '^nm-connection-editor' '$FAKE_DIR/pacman.db'"
 check "Plasma and kept tools untouched" bash -c "grep -qx plasma-desktop '$FAKE_DIR/pacman.db' && grep -qx foot '$FAKE_DIR/pacman.db' && grep -qx keyd '$FAKE_DIR/pacman.db'"
 check "the Plasma-only stag-session replaces the labwc-era one" cmp "$ROOT/desktop/bin/stag-session.sh" "$STAGOS_LOCAL_BIN/stag-session"
@@ -93,7 +98,7 @@ check "run 2: no second backup copies" bash -c "! find '$BK' -name '*.1' | grep 
 # declined: configs still move (they are only moved), packages stay
 cp "$T/db0" "$FAKE_DIR/pacman.db"; : > "$FAKE_LOG"
 printf 'n\n' | "$ROOT/stagos-desktop" cleanup-labwc > "$T/no.log" 2>&1
-check "answering N keeps every package" bash -c "! grep -q 'pacman -Rns' '$FAKE_LOG' && grep -qx labwc '$FAKE_DIR/pacman.db' && grep -q 'packages kept' '$T/no.log'"
+check "answering N keeps every package" bash -c "! grep -qE 'pacman -(Rns|D) ' '$FAKE_LOG' && grep -qx labwc '$FAKE_DIR/pacman.db' && grep -q 'packages kept' '$T/no.log'"
 check "the lists in the cleanup are the only place labwc-era package names live" bash -c "source '$ROOT/lib/labwc-cleanup.sh' && test \${#STAGOS_LABWC_PKGS[@]} -gt 20"
 
 echo; echo "labwc-cleanup: $pass passed, $fail failed"
