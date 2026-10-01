@@ -44,14 +44,14 @@ wifi_monitor_iface() {
 }
 
 # stagos_tty1_block: the ~/.zprofile block that starts Plasma on tty1 only (stag-session start). When Plasma
-# ran, the tty1 shell logs out; when it could not start (stag-session --status) tty1 stays a plain login shell.
-# A login on tty2+ is always a plain shell (escape hatch).
+# cannot start, stag-session execs a plain login shell with STAGOS_NO_SESSION=1, which this block respects (no
+# loop). A login on tty2+ is always a plain shell (escape hatch).
 stagos_tty1_block() {
   cat <<'EOF'
 
-# StagOS: autostart Plasma on tty1 (stag-session; a plain shell when Plasma cannot start)
-if [[ -z "${WAYLAND_DISPLAY:-}" && "$(tty)" == "/dev/tty1" ]] && command -v stag-session >/dev/null 2>&1; then
-  stag-session start && exit 0
+# StagOS: autostart Plasma on tty1 (stag-session; it falls back to a plain login shell)
+if [[ -z "${WAYLAND_DISPLAY:-}${STAGOS_NO_SESSION:-}" && "$(tty)" == "/dev/tty1" ]] && command -v stag-session >/dev/null 2>&1; then
+  exec stag-session start
 fi
 EOF
 }

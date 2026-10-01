@@ -1,11 +1,12 @@
 #!/bin/bash
-# StagOS: start Plasma on tty1 (called from the ~/.zprofile block, see stagos_tty1_block in lib/common.sh).
-#   stag-session start      start Plasma; exit 0 once it ran (the tty1 shell then logs out), 1 = stay in the shell
+# StagOS: start Plasma on tty1 (exec'd by the ~/.zprofile block, see stagos_tty1_block in lib/common.sh).
+#   stag-session start      start Plasma (when it ends, so does the tty1 login and autologin starts it again)
 #   stag-session retry      clear the crash fallback, then start Plasma now (on tty1) or at the next login
 #   stag-session --status   print next= (what start would do, and why) and fails=
 # Plasma = plasma-dbus-run-session-if-needed startplasma-wayland. If it exits non-zero within 30 s twice in a
-# row, start stops trying: it prints what failed and returns, so tty1 is a plain login shell. The fallback
-# lasts until `stag-session retry` or a reboot. Everything is logged to ~/.cache/stagos/session.log.
+# row, start stops trying: it prints what failed and execs a plain login shell on tty1 (STAGOS_NO_SESSION=1
+# keeps the .zprofile block from starting it again, so there is no loop). The fallback lasts until
+# `stag-session retry` or a reboot. Everything is logged to ~/.cache/stagos/session.log.
 set -uo pipefail
 
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/stagos"
@@ -15,6 +16,7 @@ STARTPLASMA="${STAGOS_STARTPLASMA:-/usr/bin/startplasma-wayland}"
 DBUS_WRAP="${STAGOS_PLASMA_DBUS_WRAPPER:-/usr/lib/plasma-dbus-run-session-if-needed}"
 FAST="${STAGOS_SESSION_FAST_SECS:-30}"
 MAX_FAILS=2
+LOGIN_SHELL="${STAGOS_LOGIN_SHELL:-}"
 
 log() { mkdir -p "$CACHE"; printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
 
@@ -64,11 +66,18 @@ run_plasma() {
   done
 }
 
+# fallback: a plain login shell in place of the session (only on a terminal; otherwise just rc 1)
+shell_instead() {
+  local sh="${LOGIN_SHELL:-${SHELL:-/bin/bash}}"
+  if [ -n "$LOGIN_SHELL" ] || [ -t 0 ]; then exec env STAGOS_NO_SESSION=1 "$sh" -l; fi
+  return 1
+}
+
 start() {
   local next; next="$(next_session)"
   case "$next" in
-    plasma) run_plasma ;;
-    *) log "no plasma: $next"; fallback_msg "not starting Plasma: ${next#shell }."; return 1 ;;
+    plasma) run_plasma || shell_instead ;;
+    *) log "no plasma: $next"; fallback_msg "not starting Plasma: ${next#shell }."; shell_instead ;;
   esac
 }
 
@@ -80,13 +89,14 @@ case "${1:-}" in
   retry)
     set_fails 0
     log "retry requested"
-    if on_tty1 || [ "${STAGOS_SESSION_FORCE_START:-0}" = 1 ]; then start; exit; fi
+    # from the fallback shell: Plasma runs in its foreground, back to the shell when it ends
+    if on_tty1 || [ "${STAGOS_SESSION_FORCE_START:-0}" = 1 ]; then unset STAGOS_NO_SESSION; LOGIN_SHELL=""; run_plasma; exit; fi
     echo "fallback cleared: the next tty1 login starts Plasma"
     exit 0 ;;
   --status|status)
     echo "next=$(next_session)"
     echo "fails=$(fails)"
     exit 0 ;;
-  -h|--help|'') sed -n '2,8p' "$0" | sed 's/^# \?//'; [ -n "${1:-}" ] ;;
+  -h|--help|'') sed -n '2,9p' "$0" | sed 's/^# \?//'; [ -n "${1:-}" ] ;;
   *) echo "stag-session: unknown command $1 (see --help)" >&2; exit 2 ;;
 esac
