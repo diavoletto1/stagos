@@ -5,6 +5,6 @@
 stagos_dm_bar() {
   dm_pkgs waybar brightnessctl papirus-icon-theme ttf-jetbrains-mono inter-font wlr-randr
   dm_config waybar waybar-dock
-  dm_bins stag-dock stag-power stag-lock
+  dm_bins stag-dock stag-power stag-lock stag-lib
   ok "bar and dock configured"
 }

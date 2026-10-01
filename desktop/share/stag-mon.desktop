@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Monitor mode
+GenericName=Capture card toggle
+Comment=Toggle monitor mode on the dedicated capture card (never the built-in card)
+Exec=foot --app-id=stag-mon -T stag-mon -e stag-mon
+Icon=stag-mon
+Terminal=false
+Categories=Network;Monitor;
+Keywords=wifi;monitor;capture;recon;
+StartupWMClass=stag-mon

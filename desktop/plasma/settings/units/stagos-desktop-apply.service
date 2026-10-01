@@ -1,0 +1,6 @@
+[Unit]
+Description=Apply StagOS desktop.conf to Plasma
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/stag-settings-apply

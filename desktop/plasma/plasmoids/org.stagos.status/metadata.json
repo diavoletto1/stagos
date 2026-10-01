@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [{ "Name": "StagOS" }],
+        "Category": "System Information",
+        "Description": "StagOS top bar readouts (recon, stats, Stagbot, network, bluetooth, volume, battery, clock); click for the Control Center.",
+        "Icon": "preferences-system",
+        "Id": "org.stagos.status",
+        "License": "MIT",
+        "Name": "StagOS Status",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

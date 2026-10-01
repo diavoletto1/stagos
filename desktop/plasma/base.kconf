@@ -1,0 +1,142 @@
+# StagOS Plasma base look, applied by `stag-plasma-apply --base` (stagos-desktop plasma runs it).
+# One key per line: file|group|key|value. Nested groups use "/" (Libinput/Defaults/Touchpad).
+# A value of \t becomes a tab (kglobalshortcutsrc separates alternative shortcuts with tabs).
+# Only these keys are written; everything else Jack sets in System Settings is left alone.
+# [effects] and [dock] from ~/.config/stagos/desktop.conf are applied on every run, not here.
+
+# ---- look: StagOS global theme (layout + icon-less desktop), colors, Plasma theme, fonts ----
+kdeglobals|KDE|LookAndFeelPackage|org.stagos.desktop
+kdeglobals|KDE|widgetStyle|Breeze
+kdeglobals|KDE|SingleClick|false
+kdeglobals|Icons|Theme|Papirus-Dark
+kdeglobals|General|font|Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+kdeglobals|General|menuFont|Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+kdeglobals|General|toolBarFont|Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+kdeglobals|General|smallestReadableFont|Inter,8,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+kdeglobals|General|fixed|JetBrains Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+kdeglobals|General|accentColorFromWallpaper|false
+kdeglobals|WM|activeFont|Inter,10,-1,5,600,0,0,0,0,0,0,0,0,0,0,1
+plasmarc|Theme|name|StagOS
+# same cursor as labwc (XCURSOR_THEME=Adwaita, 24)
+kcminputrc|Mouse|cursorTheme|Adwaita
+kcminputrc|Mouse|cursorSize|24
+# no splash: straight from the tty to the desktop
+ksplashrc|KSplash|Engine|none
+ksplashrc|KSplash|Theme|None
+
+# ---- window decoration: Breeze in StagOS colors, thin title bar, min/max/close on the right ----
+kwinrc|org.kde.kdecoration2|library|org.kde.breeze
+kwinrc|org.kde.kdecoration2|theme|Breeze
+kwinrc|org.kde.kdecoration2|ButtonsOnLeft|
+kwinrc|org.kde.kdecoration2|ButtonsOnRight|IAX
+kwinrc|org.kde.kdecoration2|BorderSize|Tiny
+kwinrc|org.kde.kdecoration2|BorderSizeAuto|false
+# window edges on the black desktop: Breeze's 1 px outline (Medium: about #2a2a2a around a #0a0a0a/#111111
+# title bar; drawn with the window shadow, so it needs KWin's OpenGL compositing) and the active window's title
+# bar in the surface color #111111 (StagOS.colors [Colors:Header]), inactive ones stay #0a0a0a
+breezerc|Common|OutlineIntensity|OutlineMedium
+breezerc|Common|ShadowSize|ShadowSmall
+breezerc|Common|ShadowStrength|90
+breezerc|Windeco|ButtonSize|ButtonSmall
+breezerc|Windeco|DrawBackgroundGradient|false
+breezerc|Windeco|DrawBorderOnMaximizedWindows|false
+breezerc|Windeco|OutlineCloseButton|false
+breezerc|Windeco|RoundedCorners|true
+breezerc|Windeco|TitleAlignment|AlignCenterFullWidth
+
+# ---- KWin: effects (blur itself follows [effects] blur), desktops, focus, tiling ----
+kwinrc|Plugins|wobblywindowsEnabled|false
+kwinrc|Plugins|magiclampEnabled|false
+kwinrc|Plugins|translucencyEnabled|false
+kwinrc|Plugins|overviewEnabled|true
+# no hot corner: the top-left corner is where the STAG menu lives (9 = no screen edge)
+kwinrc|Effect-overview|BorderActivate|9
+kwinrc|Desktops|Number|4
+kwinrc|Desktops|Rows|1
+kwinrc|Desktops|Name_1|1
+kwinrc|Desktops|Name_2|2
+kwinrc|Desktops|Name_3|3
+kwinrc|Desktops|Name_4|4
+kwinrc|Windows|FocusPolicy|ClickToFocus
+kwinrc|Windows|ElectricBorderMaximize|true
+kwinrc|Windows|ElectricBorderTiling|true
+kwinrc|Windows|RollOverDesktops|false
+# Night Light: the Control Center toggle sets Mode=Constant (warm now, until turned off); same warmth as
+# labwc's wlsunset (STAGOS_NIGHT_TEMP default)
+kwinrc|NightColor|NightTemperature|3500
+
+# ---- shortcuts (mirrors desktop/labwc/rc.xml where Plasma has an equivalent) ----
+# Meta+Space = KRunner (Spotlight). Alt+Space and Alt+F2 stay as KDE defaults.
+kglobalshortcutsrc|services/org.kde.krunner.desktop|_launch|Meta+Space\tAlt+Space\tAlt+F2\tSearch
+# Mission Control: Meta+Tab (Super+Tab) and Ctrl+Up; the 4-finger swipe is a KWin built-in. Not Meta+W:
+# keyd turns Super+W into Ctrl+W. KWin 6.7 also puts Meta+Tab / Meta+Shift+Tab on its window switcher
+# (next to Alt+Tab): the switcher keeps Alt+Tab only, so Meta+Tab has one owner.
+kglobalshortcutsrc|kwin|Overview|Meta+Tab\tCtrl+Up,Meta+W,Toggle Overview
+kglobalshortcutsrc|kwin|Walk Through Windows|Alt+Tab,Alt+Tab\tMeta+Tab,Walk Through Windows
+kglobalshortcutsrc|kwin|Walk Through Windows (Reverse)|Alt+Shift+Tab,Alt+Shift+Tab\tMeta+Shift+Tab,Walk Through Windows (Reverse)
+kglobalshortcutsrc|ksmserver|Lock Session|Meta+L\tScreensaver,Meta+L\tScreensaver,Lock Session
+# Print = region (like labwc), Super+Shift+3/4/5 like the labwc binds, spectacle's GUI on Meta+Shift+S
+kglobalshortcutsrc|services/org.kde.spectacle.desktop|_launch|Meta+Shift+S
+kglobalshortcutsrc|services/org.kde.spectacle.desktop|RectangularRegionScreenShot|Print\tMeta+Shift+4
+kglobalshortcutsrc|services/org.kde.spectacle.desktop|FullScreenScreenShot|Meta+Shift+3\tShift+Print
+kglobalshortcutsrc|services/org.kde.spectacle.desktop|RecordRegion|Meta+Shift+5
+# apps: Super+Return terminal, Super+E files (same as labwc)
+kglobalshortcutsrc|services/foot.desktop|_launch|Meta+Return
+kglobalshortcutsrc|services/thunar.desktop|_launch|Meta+E
+# windows: Super+Up maximize, Super+Down minimize, Super+F11 fullscreen (quick tile top/bottom freed)
+kglobalshortcutsrc|kwin|Window Maximize|Meta+Up\tMeta+PgUp,Meta+PgUp,Maximize Window
+kglobalshortcutsrc|kwin|Window Minimize|Meta+Down\tMeta+PgDown,Meta+PgDown,Minimize Window
+kglobalshortcutsrc|kwin|Window Quick Tile Top|none,Meta+Up,Quick Tile Window to the Top
+kglobalshortcutsrc|kwin|Window Quick Tile Bottom|none,Meta+Down,Quick Tile Window to the Bottom
+kglobalshortcutsrc|kwin|Window Fullscreen|Meta+F11,none,Make Window Fullscreen
+# workspaces: Ctrl+Alt+Left/Right like labwc (the 3/4 finger swipes are KWin built-ins)
+kglobalshortcutsrc|kwin|Switch One Desktop to the Left|Meta+Ctrl+Left\tCtrl+Alt+Left,Meta+Ctrl+Left,Switch One Desktop to the Left
+kglobalshortcutsrc|kwin|Switch One Desktop to the Right|Meta+Ctrl+Right\tCtrl+Alt+Right,Meta+Ctrl+Right,Switch One Desktop to the Right
+kglobalshortcutsrc|kwin|Window One Desktop to the Left|Ctrl+Alt+Shift+Left,none,Window One Desktop to the Left
+kglobalshortcutsrc|kwin|Window One Desktop to the Right|Ctrl+Alt+Shift+Right,none,Window One Desktop to the Right
+# clipboard history on Super+Shift+V (keyd passes it through as Meta+Shift+V)
+kglobalshortcutsrc|plasmashell|show-on-mouse-pos|Meta+V\tMeta+Shift+V,Meta+V,Show Clipboard Items at Mouse Position
+
+# ---- touchpad (same intent as module trackpad / labwc <libinput>) ----
+# Defaults apply to every touchpad until one is changed in System Settings (KWin reads
+# [Libinput][Defaults][Touchpad] before the per-device group). ClickMethod 2 = clickfinger.
+kcminputrc|Libinput/Defaults/Touchpad|TapToClick|true
+kcminputrc|Libinput/Defaults/Touchpad|TapAndDrag|true
+kcminputrc|Libinput/Defaults/Touchpad|NaturalScroll|true
+kcminputrc|Libinput/Defaults/Touchpad|ClickMethod|2
+kcminputrc|Libinput/Defaults/Touchpad|DisableWhileTyping|true
+kcminputrc|Libinput/Defaults/Touchpad|MiddleButtonEmulation|false
+kcminputrc|Libinput/Defaults/Touchpad|PointerAcceleration|0.3
+
+# ---- power (same intent as module power): lid = suspend, dim, no sleep on AC ----
+# LidAction/AutoSuspendAction 1 = sleep, 0 = nothing. Docked with a monitor: lid does nothing.
+powerdevilrc|AC/Display|DimDisplayWhenIdle|true
+powerdevilrc|AC/Display|DimDisplayIdleTimeoutSec|300
+powerdevilrc|AC/Display|TurnOffDisplayWhenIdle|true
+powerdevilrc|AC/Display|TurnOffDisplayIdleTimeoutSec|600
+powerdevilrc|AC/SuspendAndShutdown|AutoSuspendAction|0
+powerdevilrc|AC/SuspendAndShutdown|LidAction|1
+powerdevilrc|AC/SuspendAndShutdown|InhibitLidActionWhenExternalMonitorPresent|true
+powerdevilrc|Battery/Display|DimDisplayWhenIdle|true
+powerdevilrc|Battery/Display|DimDisplayIdleTimeoutSec|120
+powerdevilrc|Battery/Display|TurnOffDisplayWhenIdle|true
+powerdevilrc|Battery/Display|TurnOffDisplayIdleTimeoutSec|360
+powerdevilrc|Battery/SuspendAndShutdown|AutoSuspendAction|1
+powerdevilrc|Battery/SuspendAndShutdown|AutoSuspendIdleTimeoutSec|900
+powerdevilrc|Battery/SuspendAndShutdown|LidAction|1
+powerdevilrc|Battery/SuspendAndShutdown|InhibitLidActionWhenExternalMonitorPresent|true
+powerdevilrc|LowBattery/SuspendAndShutdown|AutoSuspendAction|1
+powerdevilrc|LowBattery/SuspendAndShutdown|AutoSuspendIdleTimeoutSec|300
+powerdevilrc|LowBattery/SuspendAndShutdown|LidAction|1
+# lock at 5 min idle and on resume (labwc: swayidle locks at 5 min and before sleep)
+kscreenlockerrc|Daemon|Autolock|true
+kscreenlockerrc|Daemon|Timeout|5
+kscreenlockerrc|Daemon|LockOnResume|true
+kscreenlockerrc|Greeter/Wallpaper/org.kde.image/General|Image|file:///usr/share/stagos/stag-lock.png
+
+# ---- coexistence with labwc and the rest of StagOS ----
+# gnome-keyring (module keyring) is the secret store in both sessions: keep KWallet out of it
+kwalletrc|Wallet|Enabled|false
+kwalletrc|org.freedesktop.secrets|apiEnabled|false
+# no file indexer on a 2014 laptop (plocate already covers file search)
+baloofilerc|Basic Settings|Indexing-Enabled|false

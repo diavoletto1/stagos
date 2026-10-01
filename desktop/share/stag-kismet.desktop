@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Kismet
+GenericName=Wireless monitor
+Comment=Start kismet if needed and open its web UI
+Exec=stag-kismet
+Icon=stag-kismet
+Terminal=false
+Categories=Network;Monitor;
+Keywords=wifi;wardriving;recon;

@@ -43,19 +43,8 @@ stagos_60_desktop() {
   run sudo install -Dm644 "$HERE/desktop/pam/swaylock" /etc/pam.d/swaylock
   run sudo sed -i 's/^# *deny = 3/deny = 10/; s/^# *unlock_time = 600/unlock_time = 120/' /etc/security/faillock.conf
 
-  # autostart labwc on tty1 only (migrate any older 'exec sway' block)
-  local zp="$HOME/.zprofile"
-  if [[ "${DRY_RUN:-0}" == "1" ]]; then
-    run "ensure labwc autostart block in $zp"
-  else
-    sed -i '/# StagOS: autostart/,/^fi$/d' "$zp" 2>/dev/null || true
-    cat >> "$zp" <<'EOF'
-
-# StagOS: autostart labwc on tty1
-if [[ -z "${WAYLAND_DISPLAY:-}" && "$(tty)" == "/dev/tty1" ]]; then
-  exec labwc
-fi
-EOF
-  fi
-  ok "labwc desktop installed (log out to tty and it starts on tty1)"
+  # autostart the desktop on tty1 only: stag-session starts Plasma or labwc (migrates any older
+  # 'exec sway' / 'exec labwc' block; the block itself lives in lib/common.sh)
+  stagos_zprofile_sync "$HOME/.zprofile" || true
+  ok "labwc desktop installed (log out to tty and stag-session starts it on tty1)"
 }

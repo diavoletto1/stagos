@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=StagOS
+Comment=Top bar, dock, look, session and recon
+Exec=stag-settings
+Icon=stag-settings
+X-KDE-System-Settings-Parent-Category=workspace
+X-KDE-System-Settings-Parent-Category-V2=workspace
+X-KDE-Weight=30

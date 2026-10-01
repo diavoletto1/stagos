@@ -1,0 +1,24 @@
+# StagOS global theme defaults (read by System Settings > Global Theme). The first plasmashell
+# start runs contents/layouts/org.kde.plasma.desktop-layout.js, which stag-plasma-apply generates
+# from desktop/plasma/layout.js + dock.js + desktop.conf.
+[kdeglobals][KDE]
+widgetStyle=Breeze
+
+[kdeglobals][General]
+ColorScheme=StagOS
+
+[kdeglobals][Icons]
+Theme=Papirus-Dark
+
+[plasmarc][Theme]
+name=StagOS
+
+[kcminputrc][Mouse]
+cursorTheme=Adwaita
+
+[kwinrc][org.kde.kdecoration2]
+library=org.kde.breeze
+theme=Breeze
+
+[ksplashrc][KSplash]
+Theme=None

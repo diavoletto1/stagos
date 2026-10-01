@@ -32,3 +32,6 @@ DRY_RUN=1 ./stagos-desktop
 
 echo; echo "== desktop helper unit tests =="
 ./test/desktop-scripts.sh
+
+echo; echo "== stag-ctl / stag-status / plasmoid unit tests =="
+./test/stag-widgets.sh

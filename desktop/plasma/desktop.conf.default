@@ -1,0 +1,54 @@
+# StagOS desktop settings: ~/.config/stagos/desktop.conf, the single source of truth behind the
+# StagOS Settings app (stag-settings), stag-session, stag-status and stag-plasma-apply.
+# A missing file or a missing key means the value written here. Comments are whole lines starting
+# with "#". This copy is created once by `stagos-desktop plasma` and never overwritten afterwards;
+# the Settings app edits values in place and keeps these comments.
+
+[session]
+# default: which session tty1 starts. plasma | labwc (stag-session start reads it)
+default=plasma
+
+[bar]
+# One switch per top bar item, in bar order. true | false. Read live by stag-status on every poll
+# (no plasmashell restart needed).
+# stag_menu: the STAG menu at the left end (stag services, settings)
+stag_menu=true
+# appmenu: the global menu of the focused app (File, Edit, ...)
+appmenu=true
+# recon: Tailscale / GPS / monitor-mode readout
+recon=true
+# stagbot: Stagbot and stag services status
+stagbot=true
+# cpu: CPU load
+cpu=true
+# ram: memory in use
+ram=true
+# temp: CPU temperature
+temp=true
+# net: wifi / network
+net=true
+# bt: Bluetooth
+bt=true
+# vol: volume
+vol=true
+# bat: battery
+bat=true
+# clock: date and time
+clock=true
+# clock_format: Qt date/time format of the clock (ddd = weekday, d = day, MMM = month, HH:mm = time)
+clock_format=ddd d MMM  HH:mm
+
+[dock]
+# launchers: .desktop ids separated by ";". "|" is a separator. Ids whose .desktop file is not
+# installed are skipped with a warning (never an error). Applied by stag-plasma-apply.
+launchers=foot.desktop;chromium.desktop;thunar.desktop;obsidian.desktop;spotify-launcher.desktop;claude.desktop;|;stag-kismet.desktop;org.wireshark.Wireshark.desktop;stag-mon.desktop
+
+[effects]
+# blur: blur behind panels and popups. true | false
+blur=true
+# animation_factor: KWin animation duration factor. 1.0 slow, 0.7 normal, 0.4 fast; 0 = no animation
+animation_factor=0.7
+
+[recon]
+# capture_iface: wireless interface used for capture (Kismet, stag-mon). Empty = automatic
+capture_iface=
