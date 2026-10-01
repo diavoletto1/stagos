@@ -1,0 +1,17 @@
+#!/bin/bash
+# fixture: a stateful `systemctl --user`. Symlink it as systemctl at the front of PATH. Each call appends
+# "systemctl args" to $FAKE_LOG. State lives in $FAKE_DIR: enabled.units and active.units (one unit per line;
+# enable adds to the first, start/restart to the second). $FAKE_DIR/no-manager present = no user manager running
+# (every call fails, like systemctl --user over SSH without a session).
+echo "systemctl $*" >> "${FAKE_LOG:?}"
+d="${FAKE_DIR:?}"; touch "$d/enabled.units" "$d/active.units"
+[[ -e "$d/no-manager" ]] && exit 1
+args=(); for a in "$@"; do [[ "$a" == --user || "$a" == --quiet ]] || args+=("$a"); done
+case "${args[0]:-}" in
+  show-environment|daemon-reload) exit 0 ;;
+  is-enabled) grep -qxF "${args[1]}" "$d/enabled.units" ;;
+  is-active)  grep -qxF "${args[1]}" "$d/active.units" ;;
+  enable)     grep -qxF "${args[1]}" "$d/enabled.units" || echo "${args[1]}" >> "$d/enabled.units" ;;
+  start|restart) grep -qxF "${args[1]}" "$d/active.units" || echo "${args[1]}" >> "$d/active.units" ;;
+  *) exit 0 ;;
+esac

@@ -22,6 +22,8 @@ plasma_checks() {
   local C="$HOME/.config" D="$HOME/.local/share" p f
   sec "module plasma: packages, files, Plasma config, session picker"
   for p in $PLASMA_PKGS; do t "plasma pkg $p" pacman -Q "$p"; done
+  t "keyd per-app keys: python-dbus + python-gobject (mapper's KDE backend)" pacman -Q python-dbus python-gobject
+  t "keyd per-app keys: stagos-keyd-apps.service matches the repo" cmp desktop/keyd/stagos-keyd-apps.service "$C/systemd/user/stagos-keyd-apps.service"
   t "kde-gtk-config not pulled in (would rewrite the StagOS GTK settings)" bash -c "! pacman -Q kde-gtk-config"
   t "power-profiles-daemon not pulled in (TLP stays)" bash -c "! pacman -Q power-profiles-daemon"
   t "no display manager pulled in" bash -c "! pacman -Q sddm plasma-login-manager 2>/dev/null | grep -q ."
@@ -142,6 +144,7 @@ plasma_test_layer() {
   sec "Plasma test layer"
   t "test/plasma-apply.sh" bash test/plasma-apply.sh
   t "test/plasma-session.sh" bash test/plasma-session.sh
+  t "test/keyd-apps.sh" bash test/keyd-apps.sh
   # screenshots next to the smoke's when the runner mounted an output dir
   local shots=/tmp/plasma-shots; [[ -d /out && -w /out ]] && shots=/out
   mkdir -p "$shots"
@@ -382,6 +385,7 @@ plasma_checks
 sec "static validation of installed configs"
 t "keyd check /etc/keyd/default.conf" keyd check /etc/keyd/default.conf
 t "systemd-analyze verify restic units" systemd-analyze verify "$C/systemd/user/stagos-restic.service" "$C/systemd/user/stagos-restic.timer"
+t "systemd-analyze verify the keyd per-app unit" systemd-analyze --user verify "$C/systemd/user/stagos-keyd-apps.service"
 t "logind drop-in syntax" grep -q '^HandleLidSwitch=suspend' /etc/systemd/logind.conf.d/50-stagos-lid.conf
 
 sec "a fresh run installs nothing the labwc cleanup would remove"
