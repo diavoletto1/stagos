@@ -22,18 +22,17 @@ plasma_checks() {
   local C="$HOME/.config" D="$HOME/.local/share" p f
   sec "module plasma: packages, files, Plasma config, session picker"
   for p in $PLASMA_PKGS; do t "plasma pkg $p" pacman -Q "$p"; done
-  t "kde-gtk-config not pulled in (would rewrite the labwc GTK settings)" bash -c "! pacman -Q kde-gtk-config"
+  t "kde-gtk-config not pulled in (would rewrite the StagOS GTK settings)" bash -c "! pacman -Q kde-gtk-config"
   t "power-profiles-daemon not pulled in (TLP stays)" bash -c "! pacman -Q power-profiles-daemon"
   t "no display manager pulled in" bash -c "! pacman -Q sddm plasma-login-manager 2>/dev/null | grep -q ."
   for f in stagos/plasma/base.kconf stagos/plasma/layout.js stagos/plasma/dock.js stagos/plasma/desktop.conf.default \
     color-schemes/StagOS.colors plasma/desktoptheme/StagOS/metadata.json plasma/desktoptheme/StagOS/widgets/panel-background.svg \
     plasma/look-and-feel/org.stagos.desktop/metadata.json plasma/look-and-feel/org.stagos.desktop/contents/layouts/org.kde.plasma.desktop-layout.js \
     applications/stag-kismet.desktop applications/stag-mon.desktop icons/hicolor/scalable/apps/stag-kismet.svg \
-    icons/hicolor/scalable/apps/stag-mon.svg dbus-1/services/org.freedesktop.Notifications.service; do
+    icons/hicolor/scalable/apps/stag-mon.svg; do
     t "share/$f" test -s "$D/$f"
   done
-  for f in stagos/desktop.conf stagos/desktop.env autostart/stag-plasma-apply.desktop systemd/user/mako.service.d/50-stagos-not-plasma.conf \
-    systemd/user/swaync.service.d/50-stagos-not-plasma.conf systemd/user/waybar.service.d/50-stagos-not-plasma.conf; do
+  for f in stagos/desktop.conf stagos/desktop.env autostart/stag-plasma-apply.desktop; do
     t "config/$f" test -s "$C/$f"
   done
   t "/usr/local/bin/stag-session" test -x /usr/local/bin/stag-session
@@ -81,10 +80,7 @@ assert p["Path"]["PathChanged"].endswith("/stagos/desktop.conf") and p["Path"]["
 assert s["Service"]["Type"] == "oneshot" and s["Service"]["ExecStart"] == "/usr/local/bin/stag-settings-apply"
 PY
   t "stag-settings --print-context works installed" bash -c "stag-settings --print-context | python3 -m json.tool >/dev/null"
-  if [[ -f /etc/xdg/autostart/blueman.desktop ]]; then
-    t "blueman stays out of Plasma (NotShowIn=KDE override)" grep -q '^NotShowIn=KDE;' "$C/autostart/blueman.desktop"
-    t "blueman override is a valid .desktop" desktop-file-validate "$C/autostart/blueman.desktop"
-  fi
+  t "no labwc-era coexistence files (drop-ins, notification D-Bus file, NotShowIn overrides)" bash -c "! ls '$C'/systemd/user/*.service.d/50-stagos-not-plasma.conf '$D/dbus-1/services/org.freedesktop.Notifications.service' 2>/dev/null | grep -q . && ! grep -lq '^# StagOS: .*NotShowIn=' '$C'/autostart/*.desktop 2>/dev/null"
   t "every shipped INI/rc/colors file parses (configparser, no interpolation)" python3 - "$PWD/desktop/plasma" "$C/stagos/desktop.conf" <<'PY'
 import configparser, glob, json, sys
 src = sys.argv[1]
@@ -97,15 +93,15 @@ for f in glob.glob(src + "/**/metadata.json", recursive=True):
     json.load(open(f))
 PY
   t "path/service/desktop files have no em dashes" bash -c "! grep -rlI \$'\\xe2\\x80\\x94' desktop/plasma/settings desktop/plasma/desktop.conf.default"
-  t "tty1 block runs stag-session, old 'exec labwc' block gone" bash -c "grep -q 'exec stag-session start' '$HOME/.zprofile' && test \$(grep -c '# StagOS: autostart' '$HOME/.zprofile') -eq 1 && ! grep -q 'autostart labwc on tty1' '$HOME/.zprofile'"
-  t "stag-session --status: plasma by default" bash -c "stag-session --status | grep -qx 'next=plasma (default)'"
-  # the installed stag-session with fake startplasma/labwc: two fast crashes fall back to labwc
-  local fk; fk="$(mktemp -d)"; mkdir -p "$fk/bin" "$fk/fake"
-  ln -s "$PWD/test/fixtures/bin/fake-session" "$fk/bin/startplasma-wayland"; ln -s "$PWD/test/fixtures/bin/fake-session" "$fk/bin/labwc"
+  t "tty1 block runs stag-session, older blocks gone" bash -c "grep -q '  stag-session start && exit 0' '$HOME/.zprofile' && test \$(grep -c '# StagOS: autostart' '$HOME/.zprofile') -eq 1 && ! grep -q labwc '$HOME/.zprofile'"
+  t "stag-session --status: plasma next" bash -c "stag-session --status | grep -qx 'next=plasma'"
+  # the installed stag-session with a fake startplasma: two fast crashes leave tty1 a plain shell (rc 1)
+  local fk rc; fk="$(mktemp -d)"; mkdir -p "$fk/bin" "$fk/fake"
+  ln -s "$PWD/test/fixtures/bin/fake-session" "$fk/bin/startplasma-wayland"
   echo 1 > "$fk/fake/startplasma-wayland.rc"
   HOME="$fk" FAKE_DIR="$fk/fake" FAKE_LOG="$fk/log" PATH="$fk/bin:$PATH" STAGOS_STARTPLASMA="$fk/bin/startplasma-wayland" \
-    STAGOS_PLASMA_DBUS_WRAPPER=/nonexistent stag-session start >/dev/null 2>&1
-  t "stag-session (installed): 2 fast Plasma failures -> labwc" bash -c "test \$(grep -c '^startplasma-wayland' '$fk/log') -eq 2 && grep -q '^labwc' '$fk/log' && grep -q FALLBACK '$fk/.cache/stagos/session.log'"
+    STAGOS_PLASMA_DBUS_WRAPPER=/nonexistent stag-session start >/dev/null 2>&1; rc=$?
+  t "stag-session (installed): 2 fast Plasma failures -> shell, rc 1" bash -c "test \$(grep -c '^startplasma-wayland' '$fk/log') -eq 2 && test $rc -eq 1 && grep -q FALLBACK '$fk/.cache/stagos/session.log'"
   rm -rf "$fk"
   stag-plasma-apply --base > /tmp/apply-again.log 2>&1
   t "stag-plasma-apply --base again changes 0 files" grep -q 'done (0 config file(s) changed)' /tmp/apply-again.log

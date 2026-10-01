@@ -11,7 +11,7 @@
 #   stag-ctl stagbot status [--refresh] | stagbot open [text]
 #   stag-ctl apps | app open NAME          stag services from ~/.config/stagos/stag-services
 #   stag-ctl about                          host, kernel, uptime, RAM, disk, battery health
-#   stag-ctl session lock|sleep|logout|reboot|poweroff|labwc
+#   stag-ctl session lock|sleep|logout|reboot|poweroff
 #   stag-ctl control                        everything the Control Center shows, one JSON line
 set -uo pipefail
 # shellcheck source=desktop/bin/stag-lib.sh
@@ -117,7 +117,7 @@ cmd_dnd() {
 
 # ---- night light: KWin Night Light (kwinrc [NightColor], watched live by KWin; the state comes from
 # org.kde.KWin /org/kde/KWin/NightLight). Mac style: "on" means warm now and until turned off
-# (Mode=Constant), not the sunset schedule. Outside Plasma: stag-nightlight (wlsunset). ----
+# (Mode=Constant), not the sunset schedule. ----
 night_status() {
   local on="" run=false temp=0 v
   if v="$(prop org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight enabled)"; then
@@ -126,8 +126,6 @@ night_status() {
     temp="$(prop org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight currentTemperature)"
   elif stag_have kreadconfig6 && plasma; then
     on="$(kreadconfig6 --file kwinrc --group NightColor --key Active --default false 2>/dev/null)"
-  elif stag_have stag-nightlight; then
-    on="$(stag-nightlight status)"; run="$on"
   else
     fail 3 "no night light here"
   fi
@@ -145,8 +143,6 @@ cmd_night() {
       kwriteconfig6 --file kwinrc --group NightColor --key Mode --notify Constant || fail 1 "kwriteconfig6 failed"
     fi
     kwriteconfig6 --file kwinrc --group NightColor --key Active --type bool --notify "$want" || fail 1 "kwriteconfig6 failed"
-  elif stag_have stag-nightlight; then
-    stag-nightlight "$([ "$want" = true ] && echo start || echo stop)"
   else
     fail 3 "no night light here"
   fi
@@ -410,9 +406,6 @@ cmd_session() {
     logout)   ksm logout || loginctl terminate-session "${XDG_SESSION_ID:-}" || fail 1 "logout failed" ;;
     reboot)   ksm logoutAndReboot || systemctl reboot || fail 1 "reboot failed" ;;
     poweroff) ksm logoutAndShutdown || systemctl poweroff || fail 1 "poweroff failed" ;;
-    labwc)    need stag-session
-              stag-session labwc >/dev/null || fail 1 "stag-session labwc failed"
-              ksm logout || loginctl terminate-session "${XDG_SESSION_ID:-}" || fail 1 "logout failed" ;;
     *) usage ;;
   esac
   printf '{"ok":true,"action":"%s"}\n' "$1"

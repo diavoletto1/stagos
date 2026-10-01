@@ -1,7 +1,7 @@
 #!/bin/bash
-# fixture: fake session program (startplasma-wayland, labwc, plasma_waitforname, swaync, mako). Symlink
-# it under the real name. Each call appends "name args | QT_QPA_PLATFORMTHEME=.. XDG_CURRENT_DESKTOP=.."
-# to $FAKE_LOG (so tests can see leaked labwc-only env) and exits with $FAKE_DIR/<name>.rc (default 0).
+# fixture: fake session program (startplasma-wayland). Symlink it under the real name. Each call appends
+# "name args | QT_QPA_PLATFORMTHEME=.. XDG_CURRENT_DESKTOP=.." to $FAKE_LOG (so tests can see the environment
+# the session gets) and exits with $FAKE_DIR/<name>.rc (default 0).
 name="$(basename "$0")"
 echo "$name $* | QT_QPA_PLATFORMTHEME=${QT_QPA_PLATFORMTHEME:-} XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-}" >> "${FAKE_LOG:?}"
 exit "$(cat "${FAKE_DIR:?}/$name.rc" 2>/dev/null || echo 0)"

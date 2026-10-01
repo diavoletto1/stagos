@@ -2,7 +2,7 @@
 # fixture: stateful fakes for the desktop tools behind stag-ctl / stag-status. Symlink it under the tool's
 # name (nmcli, bluetoothctl, wpctl, brightnessctl, playerctl, qdbus6, curl, kreadconfig6, kwriteconfig6,
 # busctl, tailscale, gpspipe, pgrep, pkill, rfkill, setsid, foot, konsole, gtk-launch, chromium, wl-copy,
-# xdg-open, loginctl, systemctl, stag-session, kismet) in a dir at the front of PATH.
+# xdg-open, loginctl, systemctl, kismet) in a dir at the front of PATH.
 # Every call appends "name args" to $FAKE_LOG. State lives in $FAKE_DIR/state/<key> (see st/put below);
 # test/fixtures/fake-desktop.sh has helpers to set it up. $FAKE_DIR/<name>.rc forces an exit code.
 name="$(basename "$0")"
@@ -111,5 +111,5 @@ case "$name" in
     [ "$1" = -f ] && shift; "$@" ;;
   kismet) put kismet yes ;;
   wl-copy) cat > "$FAKE_DIR/clipboard" ;;
-  *) : ;;   # foot konsole gtk-launch chromium xdg-open loginctl systemctl stag-session rfkill: log only
+  *) : ;;   # foot konsole gtk-launch chromium xdg-open loginctl systemctl rfkill: log only
 esac

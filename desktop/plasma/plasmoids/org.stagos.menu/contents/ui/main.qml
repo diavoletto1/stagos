@@ -154,11 +154,6 @@ PlasmoidItem {
             }
             Separator {}
             MenuEntry {
-                text: "Switch to labwc..."
-                onTriggered: root.ask("Switch to labwc?", "The next login starts labwc. You are logged out now; open windows close.", "Log Out", "session labwc")
-            }
-            Separator {}
-            MenuEntry {
                 text: "Lock Screen"
                 onTriggered: root.ctl("session lock")
             }

@@ -1,12 +1,9 @@
 # StagOS desktop settings: ~/.config/stagos/desktop.conf, the single source of truth behind the
-# StagOS Settings app (stag-settings), stag-session, stag-status and stag-plasma-apply.
+# StagOS Settings app (stag-settings), stag-status and stag-plasma-apply. Plasma is the only session:
+# a [session] default= key left in an older file is ignored.
 # A missing file or a missing key means the value written here. Comments are whole lines starting
 # with "#". This copy is created once by `stagos-desktop plasma` and never overwritten afterwards;
 # the Settings app edits values in place and keeps these comments.
-
-[session]
-# default: which session tty1 starts. plasma | labwc (stag-session start reads it)
-default=plasma
 
 [bar]
 # One switch per top bar item, in bar order. true | false. Read live by stag-status on every poll

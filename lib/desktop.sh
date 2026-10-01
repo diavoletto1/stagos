@@ -118,26 +118,3 @@ dm_add_group() {
   id -nG "$USER" | tr ' ' '\n' | grep -qx "$1" && return 0
   sudo usermod -aG "$1" "$USER" && DM_CHANGED=$((DM_CHANGED + 1)) && dm_note "group $1 added: log out and in again"
 }
-
-# dm_autostart_not_in DESKTOP ID...: keep XDG autostart entry ID out of DESKTOP (e.g. KDE) with a
-# ~/.config/autostart override: the system (or user) entry plus NotShowIn=DESKTOP. No-op when the
-# entry does not exist or already excludes DESKTOP. labwc does not run XDG autostart at all.
-dm_autostart_not_in() {
-  local de="$1" id src usr; shift
-  for id in "$@"; do
-    usr="$(dm_cfg)/autostart/$id.desktop"
-    if [[ -f "/etc/xdg/autostart/$id.desktop" ]]; then src="/etc/xdg/autostart/$id.desktop"
-    elif [[ -f "$usr" ]]; then src="$usr"
-    else continue; fi
-    if grep -Eq "^NotShowIn=(.*;)?$de(;|\$)" "$src" || { grep -q '^OnlyShowIn=' "$src" && ! grep -Eq "^OnlyShowIn=(.*;)?$de(;|\$)" "$src"; }; then
-      continue
-    fi
-    awk -v de="$de" -v src="$src" '
-      NR == 1 { print "# StagOS: " src " with NotShowIn=" de " (labwc starts its own copy)" }
-      /^# StagOS: / { next }
-      /^\[/ { if (grp == "[Desktop Entry]" && !done) { print "NotShowIn=" de ";"; done = 1 } grp = $0; print; next }
-      grp == "[Desktop Entry]" && /^NotShowIn=/ { v = substr($0, 11); if (v != "" && v !~ /;$/) v = v ";"; print "NotShowIn=" v de ";"; done = 1; next }
-      { print }
-      END { if (!done) print "NotShowIn=" de ";" }' "$src" | dm_write "$usr" 644
-  done
-}

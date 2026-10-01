@@ -137,7 +137,7 @@ check "night: KWin state read as D-Bus properties (Properties.Get)" grep -q -- '
 check "night on: bool with --notify" grep -q -- 'kwriteconfig6 --file kwinrc --group NightColor --key Active --type bool --notify true' "$FAKE_LOG"
 jcheck "night toggle -> off" "$(stag-ctl night toggle)" '.on == false'
 fake_state plasma no
-check "night outside Plasma without stag-nightlight -> 3" test "$(rc stag-ctl night on)" = 3
+check "night outside Plasma -> 3 (not available)" test "$(rc stag-ctl night on)" = 3
 
 # ---- volume, brightness, media ----
 new
@@ -244,8 +244,7 @@ check "session reboot through Plasma's logout (org.kde.Shutdown)" grep -q 'qdbus
 fake_state plasma no; : > "$FAKE_LOG"
 stag-ctl session poweroff >/dev/null
 check "session poweroff without Plasma: systemctl" grep -q '^systemctl poweroff' "$FAKE_LOG"
-: > "$FAKE_LOG"; stag-ctl session labwc >/dev/null
-check "session labwc: stag-session labwc, then log out" bash -c "grep -q '^stag-session labwc' '$FAKE_LOG' && grep -q '^loginctl terminate-session' '$FAKE_LOG'"
+check "session labwc is gone -> 2" test "$(rc stag-ctl session labwc)" = 2
 check "session junk -> 2" test "$(rc stag-ctl session dance)" = 2
 J="$(stag-ctl control)"
 jcheck "control: one JSON with every section" "$J" 'has("wifi") and has("bt") and has("dnd") and has("night") and .vol.volume == 40 and .bright.percent == 50 and has("media") and .recon.gps.mode == 3'
