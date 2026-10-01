@@ -147,7 +147,7 @@ stag-session --status    # next= (what tty1 starts, and why), fails=
 stag-session retry       # clear the fallback; on tty1 it starts Plasma right away
 ```
 
-**Fallback**: if Plasma exits with an error within 30 s twice in a row, stag-session stops trying, prints what failed,
+**Fallback**: if Plasma exits within 30 s twice in a row (with an error or not), stag-session stops trying, prints what failed,
 the log (`~/.cache/stagos/session.log`) and how to retry, and leaves tty1 as a plain login shell (the `.zprofile` block
 sees `STAGOS_NO_SESSION=1` there, so it never loops). It stays that way until `stag-session retry`, "Retry Plasma at
 next login" in StagOS Settings > Session, or a reboot (the fail count is per boot). Without Plasma installed tty1 is

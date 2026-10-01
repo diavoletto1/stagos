@@ -44,11 +44,16 @@ session_sandbox() { # fresh HOME + fake startplasma; $1 = 1 when Plasma is "inst
 FAILS_F() { echo "$HOME/.cache/stagos/session-plasma-fails"; }
 session_sandbox 1
 check "session: next is plasma on a fresh HOME" bash -c "stag-session --status | grep -qx 'next=plasma'"
-stag-session start >/dev/null 2>&1; rc=$?
+STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1; rc=$?
 check "session: start runs startplasma through the dbus wrapper" bash -c "grep -q '^dbus-wrapper $T/sess/startplasma-wayland' '$FAKE_LOG' && grep -q '^startplasma-wayland' '$FAKE_LOG'"
 check "session: clean plasma exit returns 0, no shell (the tty1 login ends)" bash -c "test $rc = 0 && ! grep -q '^login-shell' '$FAKE_LOG'"
-: > "$FAKE_LOG"; QT_QPA_PLATFORMTHEME=kde stag-session start >/dev/null 2>&1
+: > "$FAKE_LOG"; QT_QPA_PLATFORMTHEME=kde STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1
 check "session: the environment reaches Plasma untouched" grep -q '^startplasma-wayland .*QT_QPA_PLATFORMTHEME=kde ' "$FAKE_LOG"
+: > "$FAKE_LOG"; STAGOS_LOGIN_SHELL="$T/sess/login-shell" stag-session start >/dev/null 2>&1
+check "session: a fast clean exit (rc 0) twice also falls back (no tty1 loop)" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 2 && grep -qx 'login-shell -l NO_SESSION=1' '$FAKE_LOG'"
+rm -f "$(FAILS_F)"
+: > "$FAKE_LOG"; STAGOS_NO_SESSION=1 STAGOS_LOGIN_SHELL="$T/sess/login-shell" stag-session start >/dev/null 2>&1
+check "session: start from the fallback shell (old .zprofile block): no plasma, a non-login shell (no loop)" bash -c "! grep -q '^startplasma-wayland' '$FAKE_LOG' && grep -qx 'login-shell -i NO_SESSION=1' '$FAKE_LOG'"
 echo 1 > "$FAKE_DIR/startplasma-wayland.rc"; : > "$FAKE_LOG"
 err="$(stag-session start 2>&1 >/dev/null)"; rc=$?
 check "session: 2 fast plasma failures, then stop (no third try)" test "$(grep -c '^startplasma-wayland' "$FAKE_LOG")" = 2
@@ -69,7 +74,7 @@ rm "$FAKE_DIR/startplasma-wayland.rc"; : > "$FAKE_LOG"
 out="$(stag-session retry 2>&1)"
 check "session: retry outside tty1 clears the counter and starts nothing" bash -c "grep -q 'fallback cleared' <<< \"\$1\" && ! grep -q startplasma '$FAKE_LOG' && stag-session --status | grep -qx 'fails=0'" _ "$out"
 echo "2 boot-1" > "$(FAILS_F)"; : > "$FAKE_LOG"
-STAGOS_NO_SESSION=1 STAGOS_SESSION_FORCE_START=1 stag-session retry >/dev/null 2>&1; rc=$?
+STAGOS_NO_SESSION=1 STAGOS_SESSION_FORCE_START=1 STAGOS_SESSION_FAST_SECS=0 stag-session retry >/dev/null 2>&1; rc=$?
 check "session: retry on tty1 starts Plasma now (in the foreground)" bash -c "grep -q '^startplasma-wayland' '$FAKE_LOG' && test $rc = 0 && ! grep -q '^login-shell' '$FAKE_LOG'"
 echo 2 > "$(FAILS_F)"
 check "session: an old counter without a boot id counts as 0" bash -c "stag-session --status | grep -qx 'fails=0'"

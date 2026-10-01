@@ -3,10 +3,10 @@
 #   stag-session start      start Plasma (when it ends, so does the tty1 login and autologin starts it again)
 #   stag-session retry      clear the crash fallback, then start Plasma now (on tty1) or at the next login
 #   stag-session --status   print next= (what start would do, and why) and fails=
-# Plasma = plasma-dbus-run-session-if-needed startplasma-wayland. If it exits non-zero within 30 s twice in a
-# row, start stops trying: it prints what failed and execs a plain login shell on tty1 (STAGOS_NO_SESSION=1
-# keeps the .zprofile block from starting it again, so there is no loop). The fallback lasts until
-# `stag-session retry` or a reboot. Everything is logged to ~/.cache/stagos/session.log.
+# Plasma = plasma-dbus-run-session-if-needed startplasma-wayland. If it exits within 30 s twice in a row (any
+# exit code), start stops trying: it prints what failed and execs a plain login shell on tty1
+# (STAGOS_NO_SESSION=1 keeps the .zprofile block from starting it again, so there is no loop). The fallback
+# lasts until `stag-session retry` or a reboot. Everything is logged to ~/.cache/stagos/session.log.
 set -uo pipefail
 
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/stagos"
@@ -50,7 +50,8 @@ run_plasma() {
     t0="$(date +%s)"
     "${cmd[@]}"
     rc=$?; dur=$(( $(date +%s) - t0 ))
-    if [ "$rc" -eq 0 ] || [ "$dur" -ge "$FAST" ]; then
+    # a clean exit counts as well when it is fast: a Plasma that returns 0 at once would loop tty1 otherwise
+    if [ "$dur" -ge "$FAST" ]; then
       set_fails 0
       log "plasma exited rc=$rc after ${dur}s"
       return 0
@@ -66,15 +67,20 @@ run_plasma() {
   done
 }
 
-# fallback: a plain login shell in place of the session (only on a terminal; otherwise just rc 1)
+# fallback: a plain login shell in place of the session (only on a terminal; otherwise just rc 1).
+# shell_instead -i: an interactive shell that does not read ~/.zprofile again
 shell_instead() {
   local sh="${LOGIN_SHELL:-${SHELL:-/bin/bash}}"
-  if [ -n "$LOGIN_SHELL" ] || [ -t 0 ]; then exec env STAGOS_NO_SESSION=1 "$sh" -l; fi
+  if [ -n "$LOGIN_SHELL" ] || [ -t 0 ]; then exec env STAGOS_NO_SESSION=1 "$sh" "${1:--l}"; fi
   return 1
 }
 
 start() {
-  local next; next="$(next_session)"
+  local next
+  # started again from the fallback shell's own login: an older .zprofile block that does not check
+  # STAGOS_NO_SESSION. A login shell would read that block again (a loop), so this one is not a login shell.
+  if [ -n "${STAGOS_NO_SESSION:-}" ]; then log "start skipped: STAGOS_NO_SESSION is set"; shell_instead -i; return; fi
+  next="$(next_session)"
   case "$next" in
     plasma) run_plasma || shell_instead ;;
     *) log "no plasma: $next"; fallback_msg "not starting Plasma: ${next#shell }."; shell_instead ;;
