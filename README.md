@@ -214,6 +214,7 @@ the old packages that are installed and that nothing else needs (the list is `ST
 ./test/desktop-container.sh plasma           # module plasma only: dry run, run 1, run 2 = 0 changes, Plasma config + session checks
 ./test/stag-widgets-container.sh             # the plasma phase, then the visual smoke (Xvfb + KWin + plasmashell, screenshots)
 ./test/labwc-migrate-container.sh            # old main (labwc era) installed, then this tree, cleanup-labwc, then the smoke
+./test/fresh-install-container.sh            # clean box: provision 60/65 + every module, twice (0 changes), nothing labwc, then the smoke
 ./test/desktop-container.sh clean            # remove the image and package cache
 ```
 

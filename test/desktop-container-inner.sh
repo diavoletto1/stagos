@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Runs INSIDE the container as root (see desktop-container.sh). Phases: all | install | plasma | migrate | modules <names...>
+# Runs INSIDE the container as root (see desktop-container.sh). Phases: all | install | plasma | migrate | fresh | modules <names...>
 set -euo pipefail
 phase="${1:-install}"; shift || true
-export STAGOS_APPS_EXCLUDE="blender freecad libreoffice-fresh qemu-desktop virt-manager"   # multi-GB; names are checked to resolve
+# multi-GB; names are checked to resolve. STAGOS_APPS_EXCLUDE_EXTRA: more to skip (test/fresh-install-container.sh)
+export STAGOS_APPS_EXCLUDE="blender freecad libreoffice-fresh qemu-desktop virt-manager ${STAGOS_APPS_EXCLUDE_EXTRA:-}"
 export STAGOS_KEYRING_EMPTY=1
 
 if true; then

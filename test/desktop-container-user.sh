@@ -130,7 +130,7 @@ widget_checks() {
   # qmllint: a report, not a gate (Plasma's QML modules are not all visible to qmllint outside plasmashell)
   q=/usr/lib/qt6/bin/qmllint
   if [[ -x "$q" ]]; then
-    "$q" -I /usr/lib/qt6/qml "$PWD"/desktop/plasma/plasmoids/*/contents/ui/*.qml > /tmp/qmllint.log 2>&1
+    "$q" -I /usr/lib/qt6/qml "$PWD"/desktop/plasma/plasmoids/*/contents/ui/*.qml "$PWD"/desktop/plasma/settings/*.qml > /tmp/qmllint.log 2>&1
     echo "qmllint: $(grep -c '^Warning' /tmp/qmllint.log) warning(s), $(grep -ciE '^Error|: error' /tmp/qmllint.log) error(s) (report only, /tmp/qmllint.log)"
     grep -E '^(Warning|Error)' /tmp/qmllint.log | sed 's|'"$PWD"'/||' | sort | uniq -c | sort -rn | head -25
     t "qmllint: no syntax errors" bash -c "! grep -qiE 'SyntaxError|Expected token|Unexpected token' /tmp/qmllint.log"
@@ -142,8 +142,10 @@ plasma_test_layer() {
   sec "Plasma test layer"
   t "test/plasma-apply.sh" bash test/plasma-apply.sh
   t "test/plasma-session.sh" bash test/plasma-session.sh
-  mkdir -p /tmp/plasma-shots
-  t "test/plasma-settings.sh (app loads headless, round trips, screenshots)" env STAGOS_SHOT_DIR=/tmp/plasma-shots bash test/plasma-settings.sh
+  # screenshots next to the smoke's when the runner mounted an output dir
+  local shots=/tmp/plasma-shots; [[ -d /out && -w /out ]] && shots=/out
+  mkdir -p "$shots"
+  t "test/plasma-settings.sh (app loads headless, round trips, screenshots)" env STAGOS_SHOT_DIR="$shots" bash test/plasma-settings.sh
 }
 
 if [[ "$phase" == plasma ]]; then
@@ -210,7 +212,14 @@ if [[ "$phase" == migrate ]]; then
   t "plasma module migrated the tty1 block" grep -q '  exec stag-session start' "$HOME/.zprofile"
 
   sec "cleanup-labwc: dry run"
+  # cleanup before ./stagos-desktop (the README order): the labwc-era stag-session and an old default=labwc are
+  # still there, and that stag-session falls back to (or starts) labwc
+  sudo install -m755 "$OLD/desktop/bin/stag-session.sh" /usr/local/bin/stag-session
+  printf '[session]\ndefault=labwc\n' >> "$HOME/.config/stagos/desktop.conf"
   cp /tmp/zprofile-old "$HOME/.zprofile"; snap /tmp/snap-before
+  echo "Required By of the installed labwc-era packages (pacman -Qi):"
+  for p in "${STAGOS_LABWC_PKGS[@]}"; do pacman -Q "$p" >/dev/null 2>&1 && printf '  %-24s %s\n' "$p" "$(lc_required_by "$p" | tr '\n' ' ')"; done
+  pacman -Qq | sort > /tmp/pkgs-before
   DRY_RUN=1 ./stagos-desktop cleanup-labwc > /tmp/cleanup-dry.log 2>&1; t "dry run exits 0" test $? -eq 0
   snap /tmp/snap-dry
   t "dry run changed nothing (files, packages, /usr/local/bin)" cmp /tmp/snap-before /tmp/snap-dry
@@ -229,9 +238,15 @@ if [[ "$phase" == migrate ]]; then
   t "backup has the old /usr/local/bin helpers" bash -c "for b in ${STAGOS_LABWC_BINS[*]}; do test -s '$BK/usr-local-bin/'\$b || exit 1; done"
   t "the originals are gone" bash -c "! ls -d '$HOME/.config/labwc' '$HOME/.config/waybar' /usr/local/bin/stag-dock 2>/dev/null | grep -q ."
   for p in "${STAGOS_LABWC_PKGS[@]}"; do t "package gone: $p" bash -c "! pacman -Q $p"; done
+  pacman -Qq | sort > /tmp/pkgs-after
+  echo "pacman -Rns also removed (dependencies nothing else needs):"
+  comm -23 /tmp/pkgs-before /tmp/pkgs-after | grep -vxF -f <(printf '%s\n' "${STAGOS_LABWC_PKGS[@]}") | tr '\n' ' '; echo
+  t "the Plasma-only stag-session replaced the labwc-era one" cmp desktop/bin/stag-session.sh /usr/local/bin/stag-session
+  t "stag-session --status after the cleanup: plasma (old default=labwc ignored)" bash -c "stag-session --status | grep -qx 'next=plasma'"
   t "nothing was kept back for a dependency" bash -c "! grep -q 'keeping ' /tmp/cleanup1.log"
   for p in $PLASMA_PKGS foot keyd tlp pipewire wireplumber pavucontrol bluez bluez-utils networkmanager thunar wl-clipboard playerctl \
-    libnotify brightnessctl papirus-icon-theme inter-font ttf-jetbrains-mono gnome-themes-extra; do
+    libnotify brightnessctl papirus-icon-theme inter-font ttf-jetbrains-mono gnome-themes-extra xdg-desktop-portal xdg-utils \
+    libqalculate plocate udiskie bluetui polkit; do
     t "still installed: $p" pacman -Q "$p"
   done
   for f in stag-lib stag-kismet stag-mon stag-ctl stag-status stag-session stag-plasma-apply stag-settings; do t "kept /usr/local/bin/$f" test -x "/usr/local/bin/$f"; done
@@ -250,6 +265,48 @@ if [[ "$phase" == migrate ]]; then
   t "no leftover warning any more" bash -c "! grep -q cleanup-labwc /tmp/new2.log"
   plasma_checks
   echo; echo "MIGRATE RESULT: $pass passed, $fail failed"
+  [ "$fail" -eq 0 ]; exit
+fi
+
+# ---- fresh: a clean box, provision's desktop steps (60-desktop, 65-extras), then every stagos-desktop module ----
+if [[ "$phase" == fresh ]]; then
+  # shellcheck source=lib/labwc-cleanup.sh
+  source lib/labwc-cleanup.sh
+  prov() { # provision.sh 60-desktop 65-extras as they are, minus systemctl (no systemd here) and three big packages
+    bash -c '
+      set -e; HERE="$PWD"; source lib/common.sh; source config/stagos.conf
+      run() {
+        if [[ "$1 $2" == "sudo systemctl" ]]; then echo "[skip] $*"; return 0; fi
+        if [[ "$1 $2 $3" == "sudo pacman -S" ]]; then
+          local a=() x; for x in "$@"; do [[ " firefox wireshark-qt noto-fonts-cjk " == *" $x "* ]] || a+=("$x"); done; "${a[@]}"; return
+        fi
+        "$@"
+      }
+      source provision/60-desktop.sh; stagos_60_desktop
+      source provision/65-extras.sh; stagos_65_extras'
+  }
+  sec "fresh: provision 60-desktop + 65-extras"
+  prov > /tmp/prov1.log 2>&1; t "provision desktop steps exit 0" test $? -eq 0
+  sed 's/\x1b\[[0-9;]*m//g' /tmp/prov1.log | grep -E 'files changed|plasma installed|warn' | tail -6
+  sec "fresh: stagos-desktop, all modules (run 1)"
+  ./stagos-desktop > /tmp/run1.log 2>&1; t "run 1 exits 0" test $? -eq 0
+  tail -4 /tmp/run1.log
+  sec "fresh: second runs (0 changes)"
+  prov > /tmp/prov2.log 2>&1; t "provision desktop steps run 2 exit 0" test $? -eq 0
+  t "provision run 2: its plasma module changed 0 files" grep -q 'files changed this run: 0$' /tmp/prov2.log
+  ./stagos-desktop > /tmp/run2.log 2>&1; t "stagos-desktop run 2 exits 0" test $? -eq 0
+  grep -a 'wrote ' /tmp/run2.log | sed 's/\x1b\[[0-9;]*m//g' | head -20
+  t "stagos-desktop run 2 changed 0 files" grep -q 'files changed this run: 0$' /tmp/run2.log
+  sec "fresh: nothing labwc-era installed or left"
+  for p in "${STAGOS_LABWC_PKGS[@]}"; do t "not installed: $p" bash -c "! pacman -Q $p"; done
+  t "no old helpers in /usr/local/bin" bash -c "! ls ${STAGOS_LABWC_BINS[*]/#//usr/local/bin/} 2>/dev/null | grep -q ."
+  t "no labwc-era configs" bash -c "test -z \"\$(source lib/common.sh; source lib/desktop.sh; source lib/labwc-cleanup.sh; lc_user_files)\""
+  t "no leftover warning" bash -c "! grep -q cleanup-labwc /tmp/run1.log /tmp/run2.log /tmp/prov1.log"
+  ASSUME_YES=1 ./stagos-desktop cleanup-labwc > /tmp/cleanup.log 2>&1
+  t "cleanup-labwc on a fresh box: nothing to do, 0 changes" bash -c "grep -q 'nothing labwc-era left' /tmp/cleanup.log && grep -q 'files changed this run: 0' /tmp/cleanup.log"
+  t "keyd config loads (keyd check)" keyd check /etc/keyd/default.conf
+  plasma_checks
+  echo; echo "FRESH RESULT: $pass passed, $fail failed"
   [ "$fail" -eq 0 ]; exit
 fi
 
