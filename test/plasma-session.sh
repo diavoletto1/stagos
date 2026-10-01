@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The tty1 autostart block (what ~/.zprofile runs): tty1 execs stag-session start, the fallback login shell
 # (STAGOS_NO_SESSION=1) does not start it again, tty2 is always a plain shell, an existing Wayland session is
-# left alone, and older blocks (exec labwc, the p1 stag-session/labwc one) are migrated.
+# left alone, and older blocks (test/fixtures/labwc-era) are migrated.
 # stag-session itself (fail counter, fallback message and shell, retry) is tested in test/desktop-scripts.sh.
 # No display, no Plasma.   ./test/plasma-session.sh
 # shellcheck disable=SC1091,SC2016  # sources lib/common.sh; fake scripts keep $* literal
@@ -33,17 +33,17 @@ check "tty3, ssh (not a tty) get a plain shell"           r "out=\$(run 'not a t
 check "tty1 inside a running Wayland session: nothing"    r "out=\$(run /dev/tty1 WAYLAND_DISPLAY=wayland-0); test -z \"\$(cat '$T/log')\" && grep -q SHELL-REACHED <<< \"\$out\""
 rm -f "$T/bin/stag-session"
 check "tty1 without stag-session: plain shell"           r "out=\$(run /dev/tty1); grep -q SHELL-REACHED <<< \"\$out\""
-check "the block never mentions another session"         bash -c "! grep -qiE 'labwc|sway' '$T/zprofile'"
+check "the block starts nothing but stag-session"        bash -c "test \$(grep -c 'exec ' '$T/zprofile') -eq 1"
 
 # migration: the old block is replaced, the user's own lines survive, a second sync changes nothing
-printf 'export EDITOR=vim\n\n# StagOS: autostart labwc on tty1\nif [[ -z "${WAYLAND_DISPLAY:-}" && "$(tty)" == "/dev/tty1" ]]; then\n  exec labwc\nfi\n' > "$T/old"
+cp "$ROOT/test/fixtures/labwc-era/zprofile-labwc" "$T/old"
 stagos_zprofile_sync "$T/old" >/dev/null 2>&1
-check "migration: old exec-labwc block replaced"   bash -c "grep -q '  exec stag-session start' '$T/old' && ! grep -q 'autostart labwc on tty1' '$T/old'"
+check "migration: the oldest block replaced"   bash -c "grep -q '  exec stag-session start' '$T/old' && test \$(grep -c '# StagOS: autostart' '$T/old') -eq 1 && ! grep -q '^  exec [^s]' '$T/old'"
 check "migration: user lines kept"                 grep -q '^export EDITOR=vim' "$T/old"
-# the p1 block (stag-session, else exec labwc) is replaced as well
-printf 'export A=1\n\n# StagOS: autostart the desktop on tty1 (stag-session: Plasma or labwc)\nif [[ -z "${WAYLAND_DISPLAY:-}" && "$(tty)" == "/dev/tty1" ]]; then\n  if command -v stag-session >/dev/null 2>&1; then exec stag-session start; fi\n  exec labwc\nfi\n' > "$T/p1"
+# the p1 block (stag-session, else the old session) is replaced as well
+cp "$ROOT/test/fixtures/labwc-era/zprofile-p1" "$T/p1"
 stagos_zprofile_sync "$T/p1" >/dev/null 2>&1
-check "migration: p1 stag-session/labwc block replaced" bash -c "! grep -q labwc '$T/p1' && grep -q '  exec stag-session start' '$T/p1' && grep -q '^export A=1' '$T/p1' && test \$(grep -c '# StagOS: autostart' '$T/p1') -eq 1"
+check "migration: p1 block replaced" bash -c "! grep -q '^  exec [^s]' '$T/p1' && grep -q '  exec stag-session start' '$T/p1' && grep -q '^export A=1' '$T/p1' && test \$(grep -c '# StagOS: autostart' '$T/p1') -eq 1"
 cp "$T/old" "$T/old2"; stagos_zprofile_sync "$T/old" >/dev/null 2>&1
 check "second sync changes nothing"                 bash -c "test \"\$(cat '$T/old')\" = \"\$(cat '$T/old2')\" && test \$(grep -c '# StagOS: autostart' '$T/old') -eq 1"
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Mock GPS: gpsfake replays a synthetic 3D-fix NMEA log on :2948 (real gpsd on
-# :2947 untouched), then checks the waybar GPS module reports "GPS 3D".
+# :2947 untouched), then checks the top bar's source (stag-ctl recon status) reports a 3D fix.
 # Run on stagpad: ./test/gps-mock.sh
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 command -v gpsfake >/dev/null || { echo "gpsfake missing (gpsd pkg)"; exit 1; }
 nmea=$(mktemp --suffix=.nmea)
-shim=$(mktemp -d)   # the waybar scripts source stag-lib from PATH
-ln -s "$PWD/desktop/bin/stag-lib.sh" "$shim/stag-lib"
+shim=$(mktemp -d)   # stag-ctl sources stag-lib from PATH; its own cache dir so a stale reading never answers
+ln -s "$PWD/desktop/bin/stag-lib.sh" "$shim/stag-lib"; ln -s "$PWD/desktop/bin/stag-ctl.sh" "$shim/stag-ctl"
 trap 'rm -rf "$nmea" "$shim"; kill "${gf:-0}" 2>/dev/null || true' EXIT
 python3 - "$nmea" <<'PY'
 import sys
@@ -25,6 +25,6 @@ open(sys.argv[1], "w").write("\r\n".join(out) + "\r\n")
 PY
 gpsfake -q -c 0.2 -P 2948 "$nmea" >/dev/null 2>&1 & gf=$!
 sleep 3
-got=$(PATH="$shim:$PATH" STAGOS_GPSD=localhost:2948 ./desktop/waybar/scripts/gps.sh)
+got=$(PATH="$shim:$PATH" STAGOS_CACHE="$shim/cache" STAGOS_GPSD=localhost:2948 stag-ctl recon status)
 echo "$got"
-if grep -q '"GPS 3D"' <<<"$got"; then echo "gps mock: PASS"; else echo "gps mock: FAIL"; exit 1; fi
+if grep -q '"gps":{"installed":true,"mode":3}' <<<"$got"; then echo "gps mock: PASS"; else echo "gps mock: FAIL"; exit 1; fi

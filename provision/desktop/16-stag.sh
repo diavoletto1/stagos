@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# Stag integration: a chromium --app launcher for each stag-* service, listed in the STAG menu on
-# the bar. Host and paths come from config/local.conf (untracked).
+# Stag integration: a chromium --app launcher (+ icon tile) for each stag-* service, listed in the STAG menu
+# (org.stagos.menu, via stag-ctl apps) and in KRunner. Host and paths come from config/local.conf (untracked).
 stagos_dm_stag() {
-  dm_pkgs chromium fuzzel
-  dm_bins stag-menu
-  dm_config waybar
+  dm_pkgs chromium
   local host="${STAGOS_STAG_HOST:-}" scheme="${STAGOS_STAG_SCHEME:-https}"
   if [[ -z "$host" || "$host" == CHANGEME* ]] || [[ ${#STAGOS_STAG_PATHS[@]} -eq 0 ]]; then
     warn "STAGOS_STAG_HOST not set in config/local.conf: no stag launchers generated (copy config/local.conf.example)"

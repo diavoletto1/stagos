@@ -1,5 +1,0 @@
-#%PAM-1.0
-# StagOS: swaylock auth via system-auth (keeps faillock guard).
-# Lockout ceiling/cooldown tuned in /etc/security/faillock.conf (deny=10, unlock_time=120).
-auth include system-auth
-account include system-auth

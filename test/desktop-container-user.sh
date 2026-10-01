@@ -48,6 +48,7 @@ plasma_checks() {
   t "kcminputrc: tap to click + natural scroll (all touchpads)" bash -c "test \"\$(kreadconfig6 --file kcminputrc --group Libinput --group Defaults --group Touchpad --key TapToClick)\" = true && test \"\$(kreadconfig6 --file kcminputrc --group Libinput --group Defaults --group Touchpad --key NaturalScroll)\" = true"
   t "powerdevil: lid = sleep, nothing on AC idle" bash -c "test \"\$(kreadconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key LidAction)\" = 1 && test \"\$(kreadconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key AutoSuspendAction)\" = 0"
   t "shortcuts: Meta+Space KRunner, Print region" bash -c "kreadconfig6 --file kglobalshortcutsrc --group services --group org.kde.krunner.desktop --key _launch | grep -q '^Meta+Space' && kreadconfig6 --file kglobalshortcutsrc --group services --group org.kde.spectacle.desktop --key RectangularRegionScreenShot | grep -q '^Print'"
+  t "shortcuts: Spectacle Shift+Print full, Meta+Shift+R record region" bash -c "kreadconfig6 --file kglobalshortcutsrc --group services --group org.kde.spectacle.desktop --key FullScreenScreenShot | grep -q '^Shift+Print' && kreadconfig6 --file kglobalshortcutsrc --group services --group org.kde.spectacle.desktop --key RecordRegion | grep -q '^Meta+Shift+R'"
   t "kwinrulesrc: per-app remember rules" bash -c "kreadconfig6 --file kwinrulesrc --group General --key rules | grep -q 'stagos-stag-mon' && test \"\$(kreadconfig6 --file kwinrulesrc --group stagos-stag-mon --key positionrule)\" = 4"
   t "generated layout keeps the p2 widget slots" bash -c "for w in menu status control; do grep -qx \"// STAGOS_WIDGET \$w\" '$D/plasma/look-and-feel/org.stagos.desktop/contents/layouts/org.kde.plasma.desktop-layout.js' || exit 1; done"
   t "kpackagetool6 sees the StagOS global theme" bash -c "kpackagetool6 --type Plasma/LookAndFeel --list 2>/dev/null | grep -qx org.stagos.desktop"
@@ -80,7 +81,7 @@ assert p["Path"]["PathChanged"].endswith("/stagos/desktop.conf") and p["Path"]["
 assert s["Service"]["Type"] == "oneshot" and s["Service"]["ExecStart"] == "/usr/local/bin/stag-settings-apply"
 PY
   t "stag-settings --print-context works installed" bash -c "stag-settings --print-context | python3 -m json.tool >/dev/null"
-  t "no labwc-era coexistence files (drop-ins, notification D-Bus file, NotShowIn overrides)" bash -c "! ls '$C'/systemd/user/*.service.d/50-stagos-not-plasma.conf '$D/dbus-1/services/org.freedesktop.Notifications.service' 2>/dev/null | grep -q . && ! grep -lq '^# StagOS: .*NotShowIn=' '$C'/autostart/*.desktop 2>/dev/null"
+  t "no coexistence leftovers (drop-ins, notification D-Bus file, NotShowIn overrides)" bash -c "! ls '$C'/systemd/user/*.service.d/50-stagos-not-plasma.conf '$D/dbus-1/services/org.freedesktop.Notifications.service' 2>/dev/null | grep -q . && ! grep -lq '^# StagOS: .*NotShowIn=' '$C'/autostart/*.desktop 2>/dev/null"
   t "every shipped INI/rc/colors file parses (configparser, no interpolation)" python3 - "$PWD/desktop/plasma" "$C/stagos/desktop.conf" <<'PY'
 import configparser, glob, json, sys
 src = sys.argv[1]
@@ -93,9 +94,9 @@ for f in glob.glob(src + "/**/metadata.json", recursive=True):
     json.load(open(f))
 PY
   t "path/service/desktop files have no em dashes" bash -c "! grep -rlI \$'\\xe2\\x80\\x94' desktop/plasma/settings desktop/plasma/desktop.conf.default"
-  t "tty1 block runs stag-session, older blocks gone" bash -c "grep -q '  stag-session start && exit 0' '$HOME/.zprofile' && test \$(grep -c '# StagOS: autostart' '$HOME/.zprofile') -eq 1 && ! grep -q labwc '$HOME/.zprofile'"
+  t "tty1 block runs stag-session, older blocks gone" bash -c "grep -q '  exec stag-session start' '$HOME/.zprofile' && test \$(grep -c '# StagOS: autostart' '$HOME/.zprofile') -eq 1 && ! grep -q '^  exec [^s]' '$HOME/.zprofile'"
   t "stag-session --status: plasma next" bash -c "stag-session --status | grep -qx 'next=plasma'"
-  # the installed stag-session with a fake startplasma: two fast crashes leave tty1 a plain shell (rc 1)
+  # the installed stag-session with a fake startplasma: two fast crashes stop (no terminal here: rc 1 instead of a shell)
   local fk rc; fk="$(mktemp -d)"; mkdir -p "$fk/bin" "$fk/fake"
   ln -s "$PWD/test/fixtures/bin/fake-session" "$fk/bin/startplasma-wayland"
   echo 1 > "$fk/fake/startplasma-wayland.rc"
@@ -151,9 +152,8 @@ if [[ "$phase" == plasma ]]; then
   sec "plasma: dry run"
   DRY_RUN=1 ./stagos-desktop plasma > /tmp/dry.log 2>&1; t "dry run exits 0" test $? -eq 0
   t "dry run changed nothing on disk" test ! -e "$HOME/.local/share/stagos/plasma"
-  # an existing labwc-era tty1 block must be migrated
-  # shellcheck disable=SC2016  # the old block, verbatim
-  printf 'export EDITOR=vim\n\n# StagOS: autostart labwc on tty1\nif [[ -z "${WAYLAND_DISPLAY:-}" && "$(tty)" == "/dev/tty1" ]]; then\n  exec labwc\nfi\n' > "$HOME/.zprofile"
+  # an existing older tty1 block must be migrated
+  cp test/fixtures/labwc-era/zprofile-labwc "$HOME/.zprofile"
   sec "plasma: REAL run 1"
   ./stagos-desktop plasma > /tmp/run1.log 2>&1; t "run 1 exits 0" test $? -eq 0
   grep -a -E 'files changed|warn' /tmp/run1.log | grep -v 'is up to date' | tail -12
@@ -174,26 +174,23 @@ fi
 if [[ "$phase" == install || "$phase" == all ]]; then
 sec "static: shellcheck / xml / json / keyd"
 t "shellcheck clean" shellcheck -x -s bash stagos-desktop lib/*.sh provision/desktop/*.sh desktop/bin/*.sh test/*.sh config/local.conf.example
-t "xmllint labwc+fontconfig" xmllint --noout desktop/labwc/*.xml desktop/fontconfig/fonts.conf
-t "waybar jsonc parses" bash -c "grep -v '^ *//' desktop/waybar/config.jsonc | python3 -m json.tool"
-t "swaync json parses" python3 -m json.tool desktop/swaync/config.json
+t "xmllint fontconfig" xmllint --noout desktop/fontconfig/fonts.conf
 
 sec "module list"
 ./stagos-desktop --list | tr '\n' ' '; echo
 
 sec "dry run of everything"
 DRY_RUN=1 ./stagos-desktop > /tmp/dry.log 2>&1; t "dry run exits 0" test $? -eq 0
-t "dry run changed nothing on disk" test ! -e "$HOME/.config/waybar"
+t "dry run changed nothing on disk" test ! -e "$HOME/.local/share/stagos/plasma"
 tail -3 /tmp/dry.log
 
 sec "package names resolve (incl. the heavy ones excluded from the real run)"
 pacman -Sy --noconfirm >/dev/null 2>&1 || sudo pacman -Sy --noconfirm >/dev/null 2>&1
 for p in blender freecad libreoffice-fresh qemu-desktop virt-manager libvirt dnsmasq chromium obsidian spotify-launcher openscad \
   arm-none-eabi-gcc arm-none-eabi-newlib mission-center gnome-disk-utility papers imv xournalpp gnome-calculator nodejs npm flatpak \
-  swaync swayosd waybar fuzzel plocate libqalculate keyd blueman bluez bluez-utils grim slurp swappy wf-recorder cliphist wlsunset \
-  tlp tlp-rdw swayidle swaylock wlopm fwupd upower restic snapper snap-pac grub-btrfs inotify-tools gnome-keyring seahorse libsecret \
-  wtype libinput pipewire pipewire-pulse pipewire-alsa wireplumber pavucontrol playerctl alsa-utils nm-connection-editor network-manager-applet \
-  inter-font ttf-jetbrains-mono ttf-nerd-fonts-symbols noto-fonts noto-fonts-emoji brightnessctl wlr-randr papirus-icon-theme $PLASMA_PKGS; do
+  keyd bluez bluez-utils networkmanager tlp tlp-rdw fwupd upower restic snapper snap-pac grub-btrfs inotify-tools gnome-keyring seahorse libsecret \
+  pipewire pipewire-pulse pipewire-alsa wireplumber pavucontrol playerctl alsa-utils \
+  inter-font ttf-jetbrains-mono ttf-nerd-fonts-symbols noto-fonts noto-fonts-emoji papirus-icon-theme $PLASMA_PKGS; do
   t "pkg $p" pacman -Si "$p"
 done
 
@@ -216,21 +213,17 @@ done
 
 sec "files landed"
 C="$HOME/.config"
-for f in labwc/rc.xml labwc/autostart waybar/config.jsonc waybar-dock/config.jsonc waybar-dock/style.css swaync/config.json swayosd/style.css fuzzel/fuzzel.ini \
-  keyd/app.conf fontconfig/fonts.conf chromium-flags.conf libinput-gestures.conf stagos/desktop.env swappy/config \
+for f in keyd/app.conf fontconfig/fonts.conf chromium-flags.conf foot/foot.ini stagos/desktop.env \
   systemd/user/stagos-restic.timer systemd/user/stagos-restic.service stagos/backup.env stagos/stag-services; do
   t "config/$f" test -s "$C/$f"
 done
-for f in /etc/keyd/default.conf /etc/tlp.d/50-stagos.conf /etc/systemd/logind.conf.d/50-stagos-lid.conf /usr/local/bin/stag-spotlight \
-  /usr/local/bin/stag-dock /usr/local/bin/stag-screenshot /usr/local/bin/stag-record /usr/local/bin/stag-clip /usr/local/bin/stag-menu \
-  /usr/local/bin/stag-toggle /usr/local/bin/stag-nightlight /usr/local/bin/stag-battery /usr/local/bin/stag-lock; do
+for f in /etc/keyd/default.conf /etc/tlp.d/50-stagos.conf /etc/systemd/logind.conf.d/50-stagos-lid.conf; do
   t "$f" test -x "$f" -o -s "$f"
 done
 t "stagos-backup in ~/.local/bin" test -x "$HOME/.local/bin/stagos-backup"
 t "6 stag launchers"  bash -c "test \$(ls $HOME/.local/share/applications/stag-*.desktop | wc -l) -eq 6"
 t "stag urls only in home, not repo" bash -c "! grep -rq 'stag.test.invalid' $PWD --include='*' --exclude=local.conf --exclude-dir=.git --exclude='desktop-container*'"
 t "stag desktop entries valid Exec" grep -q 'Exec=chromium --app=https://stag.test.invalid/tasks/' "$HOME/.local/share/applications/stag-tasks.desktop"
-t "waybar-dock config is valid JSONC" python3 -c "import json,re,sys; json.loads(re.sub(r'(?m)^\s*//.*\$', '', open(sys.argv[1]).read()))" "$C/waybar-dock/config.jsonc"
 t "claude launcher" grep -q 'chromium --app=https://claude.ai' "$HOME/.local/share/applications/claude.desktop"
 t "claude code CLI installed" test -x "$HOME/.local/bin/claude"
 t "empty-password keyring created" test -s "$HOME/.local/share/keyrings/login.keyring"
@@ -247,35 +240,8 @@ plasma_checks
 
 sec "static validation of installed configs"
 t "keyd check /etc/keyd/default.conf" keyd check /etc/keyd/default.conf
-t "fuzzel --check-config" fuzzel --check-config --config "$C/fuzzel/fuzzel.ini"
 t "systemd-analyze verify restic units" systemd-analyze verify "$C/systemd/user/stagos-restic.service" "$C/systemd/user/stagos-restic.timer"
 t "logind drop-in syntax" grep -q '^HandleLidSwitch=suspend' /etc/systemd/logind.conf.d/50-stagos-lid.conf
-
-sec "headless labwc: rc.xml + autostart + bar + dock + notifications"
-export XDG_RUNTIME_DIR=/tmp/xdg; mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
-export WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman XDG_CONFIG_HOME="$C"
-pacman -Q labwc >/dev/null 2>&1 || sudo pacman -S --needed --noconfirm labwc >/dev/null 2>&1
-cat > /tmp/probe.sh <<'PROBE'
-#!/bin/sh
-sleep 2
-(timeout 6 waybar -c "$HOME/.config/waybar/config.jsonc" -s "$HOME/.config/waybar/style.css" > /tmp/waybar.log 2>&1) &
-(timeout 6 swaync > /tmp/swaync.log 2>&1) &
-(timeout 6 swayosd-server > /tmp/swayosd.log 2>&1) &
-(timeout 6 waybar -c "$HOME/.config/waybar-dock/config.jsonc" -s "$HOME/.config/waybar-dock/style.css" > /tmp/waybar-dock.log 2>&1) &
-sleep 7
-labwc --exit 2>/dev/null; kill -TERM "$PPID" 2>/dev/null
-PROBE
-chmod +x /tmp/probe.sh
-timeout 40 labwc -d -C "$C/labwc" -s /tmp/probe.sh > /tmp/labwc.log 2>&1 || true
-echo "--- labwc.log"; head -30 /tmp/labwc.log
-t "labwc read our rc.xml" grep -q "$C/labwc/rc.xml" /tmp/labwc.log
-t "labwc: no rc.xml/keybind/libinput config errors" bash -c "! grep -E '\[(ERROR|WARN)\]' /tmp/labwc.log | grep -Ei 'rcxml|rc\.xml|keybind|libinput|action|unknown|invalid|theme' "
-echo "--- waybar.log"; head -20 /tmp/waybar.log
-t "waybar config loads (no parse error)" bash -c "! grep -Ei 'parse|Error\]|failed to load|invalid' /tmp/waybar.log"
-echo "--- swaync.log"; head -8 /tmp/swaync.log
-t "swaync config+css load" bash -c "! grep -Ei 'Failed to (load|parse)|CSS Error|invalid' /tmp/swaync.log"
-echo "--- waybar-dock.log"; head -8 /tmp/waybar-dock.log
-t "waybar dock config loads (no parse error)" bash -c "! grep -Ei 'parse|Error\]|failed to load|invalid' /tmp/waybar-dock.log"
 
 sec "btrfs branch (simulated: real pacman installs, snapper/grub-btrfs actions dry)"
 STAGOS_ROOT_FSTYPE=btrfs DRY_RUN=1 ./stagos-desktop snapshots > /tmp/btrfs.log 2>&1

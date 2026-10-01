@@ -35,6 +35,9 @@ session_sandbox() { # fresh HOME + fake startplasma; $1 = 1 when Plasma is "inst
   mkdir -p "$T/sess"; rm -f "$T/sess/"*
   ln -s "$FS" "$T/sess/startplasma-wayland"
   export STAGOS_STARTPLASMA="$T/sess/startplasma-wayland" STAGOS_BOOT_ID=boot-1
+  # the fallback login shell: logs how it was started (args, STAGOS_NO_SESSION), never a real shell
+  # shellcheck disable=SC2016  # expands inside the fake shell, not here
+  printf '#!/bin/sh\necho "login-shell $* NO_SESSION=$STAGOS_NO_SESSION" >> "$FAKE_LOG"\n' > "$T/sess/login-shell"; chmod +x "$T/sess/login-shell"
   export STAGOS_PLASMA_DBUS_WRAPPER="$ROOT/test/fixtures/bin/plasma-dbus-run-session-if-needed"
   [ "${1:-1}" = 1 ] || rm -f "$T/sess/startplasma-wayland"
 }
@@ -43,13 +46,16 @@ session_sandbox 1
 check "session: next is plasma on a fresh HOME" bash -c "stag-session --status | grep -qx 'next=plasma'"
 stag-session start >/dev/null 2>&1; rc=$?
 check "session: start runs startplasma through the dbus wrapper" bash -c "grep -q '^dbus-wrapper $T/sess/startplasma-wayland' '$FAKE_LOG' && grep -q '^startplasma-wayland' '$FAKE_LOG'"
-check "session: clean plasma exit returns 0 (tty1 logs out)" test "$rc" = 0
+check "session: clean plasma exit returns 0, no shell (the tty1 login ends)" bash -c "test $rc = 0 && ! grep -q '^login-shell' '$FAKE_LOG'"
 : > "$FAKE_LOG"; QT_QPA_PLATFORMTHEME=kde stag-session start >/dev/null 2>&1
 check "session: the environment reaches Plasma untouched" grep -q '^startplasma-wayland .*QT_QPA_PLATFORMTHEME=kde ' "$FAKE_LOG"
 echo 1 > "$FAKE_DIR/startplasma-wayland.rc"; : > "$FAKE_LOG"
 err="$(stag-session start 2>&1 >/dev/null)"; rc=$?
 check "session: 2 fast plasma failures, then stop (no third try)" test "$(grep -c '^startplasma-wayland' "$FAKE_LOG")" = 2
-check "session: fallback returns 1 (tty1 stays a shell)" test "$rc" = 1
+check "session: fallback without a terminal returns 1" test "$rc" = 1
+: > "$FAKE_LOG"; STAGOS_LOGIN_SHELL="$T/sess/login-shell" STAGOS_BOOT_ID=boot-0 stag-session start >/dev/null 2>&1
+check "session: fallback on tty1 execs a login shell with STAGOS_NO_SESSION=1 (no loop)" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 2 && grep -qx 'login-shell -l NO_SESSION=1' '$FAKE_LOG'"
+echo "2 boot-1" > "$(FAILS_F)"
 check "session: fallback message says what failed, the log and how to retry" bash -c "grep -q 'Plasma failed to start 2 times' <<< \"\$1\" && grep -q 'session.log' <<< \"\$1\" && grep -q 'stag-session retry' <<< \"\$1\"" _ "$err"
 check "session: fallback logged" grep -q 'FALLBACK' "$HOME/.cache/stagos/session.log"
 check "session: status shows the fallback" bash -c "stag-session --status | grep -q '^next=shell (plasma failed 2x'"
@@ -63,8 +69,8 @@ rm "$FAKE_DIR/startplasma-wayland.rc"; : > "$FAKE_LOG"
 out="$(stag-session retry 2>&1)"
 check "session: retry outside tty1 clears the counter and starts nothing" bash -c "grep -q 'fallback cleared' <<< \"\$1\" && ! grep -q startplasma '$FAKE_LOG' && stag-session --status | grep -qx 'fails=0'" _ "$out"
 echo "2 boot-1" > "$(FAILS_F)"; : > "$FAKE_LOG"
-STAGOS_SESSION_FORCE_START=1 stag-session retry >/dev/null 2>&1; rc=$?
-check "session: retry on tty1 starts Plasma now" bash -c "grep -q '^startplasma-wayland' '$FAKE_LOG' && test $rc = 0"
+STAGOS_NO_SESSION=1 STAGOS_SESSION_FORCE_START=1 stag-session retry >/dev/null 2>&1; rc=$?
+check "session: retry on tty1 starts Plasma now (in the foreground)" bash -c "grep -q '^startplasma-wayland' '$FAKE_LOG' && test $rc = 0 && ! grep -q '^login-shell' '$FAKE_LOG'"
 echo 2 > "$(FAILS_F)"
 check "session: an old counter without a boot id counts as 0" bash -c "stag-session --status | grep -qx 'fails=0'"
 rm -f "$(FAILS_F)"; mkdir "$(FAILS_F)"; echo 1 > "$FAKE_DIR/startplasma-wayland.rc"
@@ -77,6 +83,8 @@ session_sandbox 0
 check "session: no Plasma installed -> shell" bash -c "stag-session --status | grep -q '^next=shell (plasma not installed'"
 stag-session start >/dev/null 2>&1; rc=$?
 check "session: no Plasma installed: start returns 1, runs nothing" bash -c "test $rc = 1 && ! test -s '$FAKE_LOG'"
+STAGOS_LOGIN_SHELL="$T/sess/login-shell" stag-session start >/dev/null 2>&1
+check "session: no Plasma installed: login shell on tty1" grep -qx 'login-shell -l NO_SESSION=1' "$FAKE_LOG"
 check "session: labwc is gone (unknown command)" bash -c "! stag-session labwc 2>/dev/null"
 check "session: rejects junk" bash -c "! stag-session bogus"
 unset STAGOS_STARTPLASMA STAGOS_PLASMA_DBUS_WRAPPER STAGOS_BOOT_ID
@@ -131,6 +139,7 @@ unset STAGOS_PLASMA_DATA STAGOS_DESKTOP_CONF XDG_DATA_DIRS
 
 # ---- plasma data invariants ----
 P="$ROOT/desktop/plasma"
+check "base.kconf: Spectacle on Print (region), Shift+Print (full), Meta+Shift+R (record region)" bash -c "grep -q '^kglobalshortcutsrc|services/org.kde.spectacle.desktop|RectangularRegionScreenShot|Print' '$P/base.kconf' && grep -q '^kglobalshortcutsrc|services/org.kde.spectacle.desktop|FullScreenScreenShot|Shift+Print' '$P/base.kconf' && grep -q '^kglobalshortcutsrc|services/org.kde.spectacle.desktop|RecordRegion|Meta+Shift+R' '$P/base.kconf'"
 check "base.kconf: every line is file|group|key|value" bash -c "grep -vE '^(#|$)' '$P/base.kconf' | awk -F'|' 'NF < 4 { bad = 1 } END { exit bad }'"
 check "base.kconf: no hot corner, no wobbly/magic lamp/translucency" bash -c "grep -q '^kwinrc|Effect-overview|BorderActivate|9$' '$P/base.kconf' && for e in wobblywindows magiclamp translucency; do grep -q \"^kwinrc|Plugins|\${e}Enabled|false$\" '$P/base.kconf' || exit 1; done"
 check "window edges: active title bar #111111 over inactive #0a0a0a, Breeze outline Medium" bash -c "awk '/^\\[Colors:Header\\]\$/ {g = 1; next} /^\\[/ {g = 0} g && /^BackgroundNormal=17,17,17\$/ {ok = 1} END {exit !ok}' '$P/StagOS.colors' && grep -q '^breezerc|Common|OutlineIntensity|OutlineMedium\$' '$P/base.kconf'"

@@ -253,15 +253,10 @@ check "no arguments -> 2" test "$(rc stag-ctl)" = 2
 check "stag-lib refuses to run directly" test "$(rc bash "$ROOT/desktop/bin/stag-lib.sh")" = 2
 PATH="$ORIG_PATH"
 
-# ---- waybar scripts share stag-lib ----
+# ---- stag-lib recon helpers as the top bar sees them (tailnet ip, gps fix, a card already in monitor mode) ----
 new
-J="$(bash "$ROOT/desktop/waybar/scripts/tailscale.sh")"
-check "waybar tailscale via stag-lib" test "$J" = '{"text":"TS","class":"ok","tooltip":"tailnet up  100.64.0.7"}'
-check "waybar gps via stag-lib" test "$(bash "$ROOT/desktop/waybar/scripts/gps.sh")" = '{"text":"GPS 3D","class":"ok"}'
 fake_sys_iface wlan1 803 wireless
-check "waybar capture via stag-lib (sysfs monitor type)" test "$(bash "$ROOT/desktop/waybar/scripts/capture.sh")" = '{"text":"MON wlan1","class":"hot","tooltip":"capturing on wlan1"}'
-rm "$T/sb/bin/stag-lib"
-check "waybar scripts degrade without stag-lib" bash -c "bash '$ROOT/desktop/waybar/scripts/capture.sh' | grep -q 'MON ?'"
+jcheck "recon via stag-lib: tailnet ip, 3D fix, monitor-mode card" "$(stag-ctl recon status)" '.ts.ip == "100.64.0.7" and .gps.mode == 3 and .capture.monitor == "wlan1"'
 PATH="$ORIG_PATH"
 
 # ---- plasmoid packages (static; kpackagetool6 + qmllint run in the container test) ----

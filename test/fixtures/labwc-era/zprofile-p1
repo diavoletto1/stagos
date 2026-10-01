@@ -1,0 +1,7 @@
+export A=1
+
+# StagOS: autostart the desktop on tty1 (stag-session: Plasma or labwc)
+if [[ -z "${WAYLAND_DISPLAY:-}" && "$(tty)" == "/dev/tty1" ]]; then
+  if command -v stag-session >/dev/null 2>&1; then exec stag-session start; fi
+  exec labwc
+fi

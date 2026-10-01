@@ -1,5 +1,5 @@
 #!/bin/bash
-# StagOS shared shell helpers, sourced (not run) by stag-ctl, stag-status and the waybar scripts:
+# StagOS shared shell helpers, sourced (not run) by stag-ctl and stag-status:
 #   . stag-lib        (bash finds it on PATH; installed as /usr/local/bin/stag-lib)
 # Everything here is cheap: /proc and /sys are read with bash builtins, slow probes (tailscale,
 # gpsd) go through stag_cached so a bar poll never waits on them.
@@ -118,7 +118,7 @@ stag_cached() { # NAME TTL FUNC
   printf '%s' "$v"
 }
 
-# ---- recon: tailscale, gps, capture card, kismet (shared with the labwc waybar scripts) ----
+# ---- recon: tailscale, gps, capture card, kismet ----
 stag_ts() { # "none" | "down" | "up <ipv4>"
   if ! stag_have tailscale; then echo none; return; fi
   if tailscale status >/dev/null 2>&1; then

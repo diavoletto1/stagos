@@ -20,7 +20,7 @@ stagos_dm_apps() {
 
   # chromium on Wayland
   dm_install "$HERE/desktop/chromium/chromium-flags.conf" "$(dm_cfg)/chromium-flags.conf" 644
-  # foot with the StagOS zsh config (foot.ini is in the labwc-era config set)
+  # foot (the dock terminal) with the StagOS zsh config
   dm_config foot
   dm_install "$HERE/desktop/zsh/.zshrc" "$HOME/.zshrc" 644
 
