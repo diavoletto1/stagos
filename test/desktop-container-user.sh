@@ -171,6 +171,88 @@ if [[ "$phase" == plasma ]]; then
   [ "$fail" -eq 0 ]; exit
 fi
 
+# ---- migrate: a box that ran the labwc-era StagOS, then this tree, then ./stagos-desktop cleanup-labwc ----
+if [[ "$phase" == migrate ]]; then
+  OLD="$HOME/stagos-old"
+  # shellcheck source=lib/labwc-cleanup.sh
+  source lib/labwc-cleanup.sh
+  NEW_MODS="bluetooth network audio keys power hidpi plasma"
+  snap() { { find "$HOME/.config" "$HOME/.local/share" "$HOME/.zprofile" 2>/dev/null | sort; pacman -Qq; ls /usr/local/bin; } > "$1"; }
+  sec "old StagOS ($(cat "$OLD/.stagos-ref" 2>/dev/null)): provision 60-desktop + 65-extras, then its desktop modules"
+  # the old provision steps as they are, minus systemctl (no systemd here) and three big packages that are not
+  # part of the labwc stack (firefox, wireshark-qt, noto-fonts-cjk)
+  (cd "$OLD" && bash -c '
+    set -e; HERE="$PWD"; source lib/common.sh; source config/stagos.conf
+    run() {
+      if [[ "$1 $2" == "sudo systemctl" ]]; then echo "[skip] $*"; return 0; fi
+      if [[ "$1 $2 $3" == "sudo pacman -S" ]]; then
+        local a=() x; for x in "$@"; do [[ " firefox wireshark-qt noto-fonts-cjk " == *" $x "* ]] || a+=("$x"); done; "${a[@]}"; return
+      fi
+      "$@"
+    }
+    source provision/60-desktop.sh; stagos_60_desktop
+    source provision/65-extras.sh; stagos_65_extras') > /tmp/old-provision.log 2>&1
+  t "old provision 60-desktop + 65-extras" test $? -eq 0
+  tail -3 /tmp/old-provision.log
+  # every old module except apps (heavy), stag (chromium), snapshots and keyring (nothing labwc in them)
+  (cd "$OLD" && ./stagos-desktop bluetooth bar launcher notify network audio trackpad keys capture clipboard nightlight power hidpi plasma) \
+    > /tmp/old-modules.log 2>&1
+  t "old desktop modules" test $? -eq 0
+  grep -a 'files changed' /tmp/old-modules.log
+  t "old box: labwc stack installed" pacman -Q labwc waybar swaync fuzzel mako qt6ct blueman
+  t "old box: configs, coexistence files and helpers present" bash -c "test -d '$HOME/.config/labwc' -a -d '$HOME/.config/waybar-dock' -a -s '$HOME/.config/systemd/user/waybar.service.d/50-stagos-not-plasma.conf' -a -s '$HOME/.local/share/dbus-1/services/org.freedesktop.Notifications.service' -a -x /usr/local/bin/stag-dock"
+  cp "$HOME/.zprofile" /tmp/zprofile-old
+
+  sec "this tree: the kept modules ($NEW_MODS)"
+  # shellcheck disable=SC2086  # the module list
+  ./stagos-desktop $NEW_MODS > /tmp/new1.log 2>&1; t "modules run 1 exits 0" test $? -eq 0
+  t "plasma module points at the cleanup" grep -q 'stagos-desktop cleanup-labwc' /tmp/new1.log
+  t "plasma module migrated the tty1 block" grep -q '  exec stag-session start' "$HOME/.zprofile"
+
+  sec "cleanup-labwc: dry run"
+  cp /tmp/zprofile-old "$HOME/.zprofile"; snap /tmp/snap-before
+  DRY_RUN=1 ./stagos-desktop cleanup-labwc > /tmp/cleanup-dry.log 2>&1; t "dry run exits 0" test $? -eq 0
+  snap /tmp/snap-dry
+  t "dry run changed nothing (files, packages, /usr/local/bin)" cmp /tmp/snap-before /tmp/snap-dry
+  sed 's/\x1b\[[0-9;]*m//g' /tmp/cleanup-dry.log | grep -E '^  (sudo|config)' | head -60
+
+  sec "cleanup-labwc: real (ASSUME_YES=1)"
+  ASSUME_YES=1 ./stagos-desktop cleanup-labwc > /tmp/cleanup1.log 2>&1; t "cleanup exits 0" test $? -eq 0
+  sed 's/\x1b\[[0-9;]*m//g' /tmp/cleanup1.log | grep -E 'keeping|Packages \(|Total Removed|backup:|files changed'
+  BK="$(sed -n 's/\x1b\[[0-9;]*m//g; s/^\[stagos\] backup: //p' /tmp/cleanup1.log)"
+  for f in labwc waybar waybar-dock fuzzel mako swaync swayosd swaylock qt6ct systemd/user/waybar.service.d/50-stagos-not-plasma.conf \
+    systemd/user/mako.service.d/50-stagos-not-plasma.conf; do
+    t "backup has .config/$f" test -e "$BK/.config/$f"
+  done
+  t "backup has the notification D-Bus file and the labwc theme" test -s "$BK/.local/share/dbus-1/services/org.freedesktop.Notifications.service" -a -d "$BK/.local/share/themes/StagOS/openbox-3"
+  t "backup has the NotShowIn=KDE autostart overrides" bash -c "ls '$BK'/.config/autostart/*.desktop | grep -q ."
+  t "backup has the old /usr/local/bin helpers" bash -c "for b in ${STAGOS_LABWC_BINS[*]}; do test -s '$BK/usr-local-bin/'\$b || exit 1; done"
+  t "the originals are gone" bash -c "! ls -d '$HOME/.config/labwc' '$HOME/.config/waybar' /usr/local/bin/stag-dock 2>/dev/null | grep -q ."
+  for p in "${STAGOS_LABWC_PKGS[@]}"; do t "package gone: $p" bash -c "! pacman -Q $p"; done
+  t "nothing was kept back for a dependency" bash -c "! grep -q 'keeping ' /tmp/cleanup1.log"
+  for p in $PLASMA_PKGS foot keyd tlp pipewire wireplumber pavucontrol bluez bluez-utils networkmanager thunar wl-clipboard playerctl \
+    libnotify brightnessctl papirus-icon-theme inter-font ttf-jetbrains-mono gnome-themes-extra; do
+    t "still installed: $p" pacman -Q "$p"
+  done
+  for f in stag-lib stag-kismet stag-mon stag-ctl stag-status stag-session stag-plasma-apply stag-settings; do t "kept /usr/local/bin/$f" test -x "/usr/local/bin/$f"; done
+  t "tty1 block migrated, one block" bash -c "grep -q '  exec stag-session start' '$HOME/.zprofile' && test \$(grep -c '# StagOS: autostart' '$HOME/.zprofile') -eq 1"
+
+  sec "cleanup-labwc: run 2 (nothing left)"
+  snap /tmp/snap-c1
+  ASSUME_YES=1 ./stagos-desktop cleanup-labwc > /tmp/cleanup2.log 2>&1; t "run 2 exits 0" test $? -eq 0
+  snap /tmp/snap-c2
+  t "run 2 finds nothing and changes nothing" bash -c "grep -q 'nothing labwc-era left' /tmp/cleanup2.log && grep -q 'files changed this run: 0' /tmp/cleanup2.log && cmp /tmp/snap-c1 /tmp/snap-c2"
+
+  sec "this tree again after the cleanup (0 changes, no leftover warning)"
+  # shellcheck disable=SC2086
+  ./stagos-desktop $NEW_MODS > /tmp/new2.log 2>&1; t "modules run 2 exits 0" test $? -eq 0
+  t "modules run 2 changed 0 files" grep -q 'files changed this run: 0$' /tmp/new2.log
+  t "no leftover warning any more" bash -c "! grep -q cleanup-labwc /tmp/new2.log"
+  plasma_checks
+  echo; echo "MIGRATE RESULT: $pass passed, $fail failed"
+  [ "$fail" -eq 0 ]; exit
+fi
+
 if [[ "$phase" == install || "$phase" == all ]]; then
 sec "static: shellcheck / xml / json / keyd"
 t "shellcheck clean" shellcheck -x -s bash stagos-desktop lib/*.sh provision/desktop/*.sh desktop/bin/*.sh test/*.sh config/local.conf.example
@@ -242,6 +324,12 @@ sec "static validation of installed configs"
 t "keyd check /etc/keyd/default.conf" keyd check /etc/keyd/default.conf
 t "systemd-analyze verify restic units" systemd-analyze verify "$C/systemd/user/stagos-restic.service" "$C/systemd/user/stagos-restic.timer"
 t "logind drop-in syntax" grep -q '^HandleLidSwitch=suspend' /etc/systemd/logind.conf.d/50-stagos-lid.conf
+
+sec "a fresh run installs nothing the labwc cleanup would remove"
+# shellcheck source=lib/labwc-cleanup.sh
+source lib/labwc-cleanup.sh
+for p in "${STAGOS_LABWC_PKGS[@]}"; do t "not installed: $p" bash -c "! pacman -Q $p"; done
+t "no old helpers in /usr/local/bin" bash -c "! ls ${STAGOS_LABWC_BINS[*]/#//usr/local/bin/} 2>/dev/null | grep -q ."
 
 sec "btrfs branch (simulated: real pacman installs, snapper/grub-btrfs actions dry)"
 STAGOS_ROOT_FSTYPE=btrfs DRY_RUN=1 ./stagos-desktop snapshots > /tmp/btrfs.log 2>&1

@@ -40,3 +40,6 @@ echo; echo "== Plasma: stag-plasma-apply, tty1 session, StagOS Settings (app tes
 ./test/plasma-apply.sh
 ./test/plasma-session.sh
 ./test/plasma-settings.sh
+
+echo; echo "== labwc-era cleanup (stagos-desktop cleanup-labwc, fakes) =="
+./test/labwc-cleanup.sh

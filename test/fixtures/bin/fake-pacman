@@ -1,0 +1,23 @@
+#!/bin/bash
+# fixture: fake pacman for the labwc cleanup tests. The installed set is $FAKE_DIR/pacman.db, one line per
+# package: "name [required-by ...]". Supports -Q NAME, -Qi NAME (Name + a wrapped "Required By" field like the
+# real one), -Rns [--noconfirm] NAME... (logs, drops the names from the db) and -S (logs only).
+db="${FAKE_DIR:?}/pacman.db"
+echo "pacman $*" >> "${FAKE_LOG:?}"
+case "$1" in
+  -Q)  grep -q "^$2\( \|$\)" "$db" ;;
+  -Qi) line="$(grep "^$2\( \|$\)" "$db")" || exit 1
+       read -r -a f <<< "$line"
+       echo "Name            : ${f[0]}"
+       echo "Version         : 1.0-1"
+       if [ "${#f[@]}" -gt 1 ]; then
+         echo "Required By     : ${f[1]}"
+         for r in "${f[@]:2}"; do echo "                  $r"; done
+       else
+         echo "Required By     : None"
+       fi
+       echo "Optional For    : None" ;;
+  -Rns) shift; [ "$1" = --noconfirm ] && shift
+       for p; do sed -i "/^$p\( \|\$\)/d" "$db"; done ;;
+  *) : ;;
+esac
