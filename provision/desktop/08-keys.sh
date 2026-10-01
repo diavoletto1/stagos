@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Mac-like keys: keyd makes Super+C/V/X/Z/A/Q/W/T/F/S act like Cmd shortcuts; foot gets
-# non-Ctrl versions so terminal Ctrl behavior (SIGINT, suspend, XOFF) is never triggered.
+# non-Ctrl versions so terminal Ctrl behavior (SIGINT, suspend, XOFF) is never triggered. Those per-app rows
+# (app.conf) are applied by keyd-application-mapper, which the plasma module starts with the session.
 stagos_dm_keys() {
   dm_pkgs keyd
   dm_install "$HERE/desktop/keyd/default.conf" /etc/keyd/default.conf 644 sudo

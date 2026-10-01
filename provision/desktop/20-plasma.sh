@@ -58,6 +58,7 @@ stagos_dm_plasma() {
   fi
   rm -f "$count"
   stagos_dm_plasma_settings
+  stagos_plasma_keyd_apps
   stagos_plasma_leftovers
   ok "plasma installed (tty1 next: $("$HERE/desktop/bin/stag-session.sh" --status | sed -n 's/^next=//p'))"
 }
@@ -110,6 +111,41 @@ stagos_dm_plasma_settings() {
     systemctl --user enable --now stagos-desktop-apply.path >/dev/null 2>&1 || warn "could not enable stagos-desktop-apply.path"
   else
     dm_note "plasma: no systemd user manager running; after login run: systemctl --user enable --now stagos-desktop-apply.path"
+  fi
+}
+
+# keyd's per-app rows (desktop/keyd/app.conf, module keys: in foot Super+C is Ctrl+Shift+C, never Ctrl+C) need
+# keyd-application-mapper in the session. Its KDE backend talks to KWin over D-Bus (python-dbus, python-gobject).
+# A systemd --user unit wanted by plasma-workspace.target starts it with Plasma; it is part of the graphical session,
+# so it stops with it and resets the rows. Run inside Plasma, the unit is (re)started now when it changed.
+stagos_plasma_keyd_apps() {
+  local unit=stagos-keyd-apps.service before="$DM_CHANGED"
+  dm_pkgs python-dbus python-gobject
+  dm_install "$HERE/desktop/keyd/$unit" "$(dm_cfg)/systemd/user/$unit" 644
+  if ! dm_dry && ! have keyd-application-mapper; then
+    dm_note "plasma: keyd is not installed (module keys), so the per-app keys (foot: Super+C = copy) stay off"
+  fi
+  if dm_dry; then
+    dm_note "plasma: systemctl --user enable $unit (dry run)"
+    return 0
+  fi
+  if ! systemctl --user show-environment >/dev/null 2>&1; then
+    dm_note "plasma: no systemd user manager running; after login run: systemctl --user enable --now $unit"
+    return 0
+  fi
+  [[ "$DM_CHANGED" != "$before" ]] && systemctl --user daemon-reload
+  if ! systemctl --user is-enabled --quiet "$unit" 2>/dev/null; then
+    if systemctl --user enable "$unit" >/dev/null 2>&1; then
+      DM_CHANGED=$((DM_CHANGED + 1)); log "enabled $unit"
+    else
+      warn "could not enable $unit"
+    fi
+  fi
+  systemctl --user is-active --quiet plasma-workspace.target 2>/dev/null || return 0
+  if [[ "$DM_CHANGED" != "$before" ]]; then
+    systemctl --user restart "$unit" || warn "could not start $unit"
+  elif ! systemctl --user is-active --quiet "$unit" 2>/dev/null; then
+    systemctl --user start "$unit" || warn "could not start $unit"
   fi
 }
 

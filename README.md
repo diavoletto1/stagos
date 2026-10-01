@@ -70,7 +70,7 @@ On stagpad: `cd /opt/stagos && git pull && ./stagos-desktop`, then log out and b
 | `keyring` | gnome-keyring + seahorse. With `STAGOS_KEYRING_EMPTY=1` creates a login keyring with an empty password so it opens under autologin; **off by default**, see the note |
 | `stag` | `chromium --app` launcher per service in `STAGOS_STAG_PATHS` at `<scheme>://<host>/<name>/` (from `config/local.conf`), icon tiles, listed in the STAG menu and KRunner. URLs are written only under `~/.local` and `~/.config` |
 | `hidpi` | Inter + JetBrains Mono, fontconfig light hinting with grayscale AA, `desktop.env` with the panel scale `STAGOS_OUTPUT_SCALE` (default 1.5, applied by the plasma module at the first login) |
-| `plasma` | the KDE Plasma 6 Wayland session (see [Plasma](#plasma)): StagOS HUD look, top bar + floating dock, touchpad, night light, Spectacle keys, `stag-session` on tty1. `STAGOS_DESKTOP_PLASMA=0` skips it |
+| `plasma` | the KDE Plasma 6 Wayland session (see [Plasma](#plasma)): StagOS HUD look, top bar + floating dock, touchpad, night light, Spectacle keys, `stag-session` on tty1, keyd's per-app keys (`stagos-keyd-apps.service`). `STAGOS_DESKTOP_PLASMA=0` skips it |
 
 **Why TLP, not power-profiles-daemon:** the repo already enables TLP; the two conflict; TLP's runtime PM and USB/PCIe/SATA
 tuning matter more on a 2014 ThinkPad battery than PPD's three profiles.
@@ -88,8 +88,18 @@ Super stays Super (Meta) for KWin. While it is held keyd translates only these k
 | Super+Shift+Z | Ctrl+Shift+Z (redo) | nothing |
 | Super+Shift+V | clipboard history (Plasma, Meta+Shift+V) | same |
 
-Real Ctrl+key is never remapped. The foot column comes from `~/.config/keyd/app.conf` and needs `keyd-application-mapper`
-running in the session; StagOS does not start it under Plasma (yet), so in foot Super+C currently sends Ctrl+C too.
+Real Ctrl+key is never remapped. The foot column comes from `~/.config/keyd/app.conf`. keyd applies it through
+`keyd-application-mapper`, which the plasma module runs as the user unit `stagos-keyd-apps.service`. The unit starts
+with Plasma (`plasma-workspace.target`) and stops with it. The mapper's KDE backend loads a small KWin script that
+reports every focus change over D-Bus (python-dbus, python-gobject), and answers each one with `keyd bind reset
+<that app's rows>`. When Plasma stops, the unit resets the rows, so the tty1 fallback gets the plain map.
+The mapper needs the `keyd` group (module `keys`; log out and in once after it is added).
+
+- Check it: `systemctl --user is-active stagos-keyd-apps` prints `active`.
+- To name a new `[section]`, run `systemctl --user stop stagos-keyd-apps`, then `keyd-application-mapper -v`. It logs
+  each focused window as `class|title`. Stop it with Ctrl+C, then `systemctl --user start stagos-keyd-apps`.
+- If KWin restarts but Plasma stays up, its script is gone and the rows stop following focus. Run
+  `systemctl --user restart stagos-keyd-apps` to fix that.
 
 ### Keyring decision
 
@@ -211,17 +221,21 @@ which waybar pulled in too) is marked explicitly installed first, so it stays. R
 ./test/stag-widgets.sh                       # stag-ctl, stag-status, plasmoids
 ./test/plasma-apply.sh ./test/plasma-session.sh ./test/plasma-settings.sh   # Plasma apply, tty1 block, StagOS Settings
 ./test/labwc-cleanup.sh                      # cleanup-labwc against a fake old HOME (fake pacman, sudo)
+./test/keyd-apps.sh                          # keyd per-app keys: the plasma module's user unit (fake systemctl), app.conf invariants
 ./test/desktop-container.sh all              # rootless podman Arch: shellcheck, dry run, real run, 2nd run must change 0 files, per-module reruns, config validation, btrfs branch
 ./test/desktop-container.sh plasma           # module plasma only: dry run, run 1, run 2 = 0 changes, Plasma config + session checks
 ./test/stag-widgets-container.sh             # the plasma phase, then the visual smoke (Xvfb + KWin + plasmashell, screenshots)
 ./test/labwc-migrate-container.sh            # old main (labwc era) installed, then this tree, cleanup-labwc, then the smoke
+./test/keyd-apps-container.sh                # real KWin + the real keyd-application-mapper, a fake keyd: foot's rows follow focus; keyd check on every row
 ./test/fresh-install-container.sh            # clean box: provision 60/65 + every module, twice (0 changes), nothing labwc, then the smoke
 ./test/desktop-container.sh clean            # remove the image and package cache
 ```
 
 ### Needs an on-device check (a container cannot do these)
 
-1. `Super+C`/`V` in chromium; in foot see the keys note above; `Super+Shift+V` opens Plasma's clipboard history; `keyd monitor` if not.
+1. `Super+C`/`V` in chromium; `Super+Shift+V` opens Plasma's clipboard history; `keyd monitor` if not. In foot, `Super+C`/`V`
+   copy and paste and `sleep 30` survives `Super+C`, while `Ctrl+C` still interrupts it; `Super+Q`/`W` close the window. A container
+   has no keyd daemon (no /dev/uinput), so the real key events are only checked on the device.
 2. Print, Shift+Print, Meta+Shift+R (Spectacle region, full screen, region recording); Super+Shift+3/4/5 the same.
 3. Trackpad: tap, natural scroll, palm rejection while typing, the 3/4-finger swipes (desktops, Overview).
 4. Top bar + dock at 1.5x on the 2560x1440 panel; Meta+Space opens KRunner; a window reopens where it was closed.
