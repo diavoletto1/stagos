@@ -4,7 +4,8 @@
 #   1. user configs and the Plasma coexistence files (NotShowIn=KDE autostart overrides, systemd drop-ins, the
 #      notification D-Bus file, the labwc window theme) are MOVED into ~/.cache/stagos-labwc-backup-<date>/,
 #      under their path relative to $HOME. Nothing is deleted.
-#   2. the labwc-era helpers in /usr/local/bin move into the same backup (sudo; listed first).
+#   2. the labwc-era helpers in /usr/local/bin move into the same backup (sudo; listed first), and the current
+#      stag-session is installed (a labwc-era one would fall back to the removed labwc).
 #   3. the labwc-era packages that are installed and that nothing outside the list requires (pacman -Qi
 #      Required By) are listed and removed with `sudo pacman -Rns` after a y/N question (ASSUME_YES=1 skips it).
 # shellcheck disable=SC2034  # the lists are read by the tests too
@@ -121,6 +122,7 @@ stagos_cleanup_labwc() {
     log "labwc-era leftovers (configs are moved to $LC_BACKUP, nothing is deleted):"
     for f in "${files[@]}"; do printf '  config   %s\n' "${f/#$HOME/\~}"; done
     for f in "${bins[@]}"; do printf '  sudo mv  %s\n' "$f"; done
+    printf '  sudo install %s (the Plasma-only one, when it differs)\n' "${STAGOS_LOCAL_BIN:-/usr/local/bin}/stag-session"
     for u in "${units[@]}"; do printf '  sudo systemctl disable --now %s\n' "$u"; done
     [[ ${#pkgs[@]} -gt 0 ]] && printf '  sudo pacman -Rns %s\n' "${pkgs[*]}"
   fi
@@ -132,6 +134,9 @@ stagos_cleanup_labwc() {
     done
   fi
   for f in "${bins[@]}"; do lc_stash "$f" sudo; done
+  # the Plasma-only stag-session goes in before labwc goes out and before the tty1 block below: a labwc-era
+  # stag-session falls back to `exec labwc`, which would loop tty1 once labwc is removed
+  dm_install "$HERE/desktop/bin/stag-session.sh" "${STAGOS_LOCAL_BIN:-/usr/local/bin}/stag-session" 755 sudo
   for u in "${units[@]}"; do run sudo systemctl disable --now "$u" || warn "could not disable $u"; done
 
   if [[ ${#pkgs[@]} -gt 0 ]]; then

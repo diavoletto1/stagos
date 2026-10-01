@@ -197,7 +197,8 @@ installed back then still has its configs and packages. After `git pull`:
 ```
 
 `cleanup-labwc` moves the old user configs and coexistence files to `~/.cache/stagos-labwc-backup-<date>/` (nothing is
-deleted), moves the old helpers out of `/usr/local/bin` (sudo), and after a y/N question runs `sudo pacman -Rns` on
+deleted), moves the old helpers out of `/usr/local/bin` and installs the current `stag-session` (sudo; an old one
+would fall back to the removed labwc), and after a y/N question runs `sudo pacman -Rns` on
 the old packages that are installed and that nothing else needs (the list is `STAGOS_LABWC_PKGS` in
 `lib/labwc-cleanup.sh`). Run it again any time: it reports nothing left.
 

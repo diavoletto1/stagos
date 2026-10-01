@@ -38,6 +38,8 @@ echo '[bar]' > "$C/stagos/desktop.conf"; echo '[main]' > "$C/foot/foot.ini"
 printf '#!/bin/bash\n# StagOS dock\n' > "$STAGOS_LOCAL_BIN/stag-dock"; printf '#!/bin/bash\n# StagOS menu\n' > "$STAGOS_LOCAL_BIN/stag-menu"
 printf '#!/bin/bash\n# not ours\n' > "$STAGOS_LOCAL_BIN/stag-power"; printf '#!/bin/bash\n# StagOS kismet\n' > "$STAGOS_LOCAL_BIN/stag-kismet"
 cp "$ROOT/test/fixtures/labwc-era/zprofile-p1" "$HOME/.zprofile"
+# the labwc-era stag-session (its fallback is `exec labwc`)
+printf '#!/bin/bash\n# StagOS: pick and start the graphical session\nexec labwc\n' > "$STAGOS_LOCAL_BIN/stag-session"
 # installed: labwc-era packages (one still needed by a package outside the list), Plasma, a kept tool
 cat > "$FAKE_DIR/pacman.db" <<'DB'
 labwc
@@ -78,6 +80,7 @@ check "kept: helpers that are not StagOS copies, and the recon helpers" bash -c 
 check "pacman -Rns got exactly the removable labwc-era packages" bash -c "grep -qx 'pacman -Rns --noconfirm labwc waybar fuzzel mako swaync qt6ct blueman network-manager-applet' '$FAKE_LOG'"
 check "a package still required outside the list is kept" bash -c "grep -q 'keeping nm-connection-editor: required by some-other-app' '$T/run1.log' && grep -q '^nm-connection-editor' '$FAKE_DIR/pacman.db'"
 check "Plasma and kept tools untouched" bash -c "grep -qx plasma-desktop '$FAKE_DIR/pacman.db' && grep -qx foot '$FAKE_DIR/pacman.db' && grep -qx keyd '$FAKE_DIR/pacman.db'"
+check "the Plasma-only stag-session replaces the labwc-era one" cmp "$ROOT/desktop/bin/stag-session.sh" "$STAGOS_LOCAL_BIN/stag-session"
 check "tty1 block migrated to the Plasma one, user lines kept" bash -c "grep -q '  exec stag-session start' '$HOME/.zprofile' && ! grep -q labwc '$HOME/.zprofile' && grep -q '^export A=1' '$HOME/.zprofile'"
 check "the listing came before any change (sudo steps shown first)" bash -c "awk '/sudo mv/ {l = NR} /moved \\// && !m {m = NR} END {exit !(l && m && l < m)}' '$T/run1.log'"
 
