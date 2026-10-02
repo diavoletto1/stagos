@@ -1,0 +1,12 @@
+[Unit]
+Description=StagOS field log sync schedule (uploads finished .kismet logs once back online)
+
+[Timer]
+# catches up after field mode ended whenever the laptop is online; sync itself no-ops when offline
+OnBootSec=3min
+OnUnitActiveSec=15min
+Persistent=true
+RandomizedDelaySec=2min
+
+[Install]
+WantedBy=timers.target

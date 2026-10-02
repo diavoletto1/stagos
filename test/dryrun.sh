@@ -36,6 +36,9 @@ echo; echo "== desktop helper unit tests =="
 echo; echo "== stag-ctl / stag-status / plasmoid unit tests =="
 ./test/stag-widgets.sh
 
+echo; echo "== stag-field (field mode) + sync contract =="
+./test/field.sh
+
 echo; echo "== Plasma: stag-plasma-apply, tty1 session, StagOS Settings (app tests need qml: container) =="
 ./test/plasma-apply.sh
 ./test/plasma-session.sh

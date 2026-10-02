@@ -179,9 +179,18 @@ autologin then starts the session.
   `stag-status --json` every 3 s; it reads `[bar]` on every call, so toggles apply live. Click them for the
   **Control Center**: wifi / bluetooth / Do Not Disturb / Night Light (on = warm now until turned off), volume and
   brightness, now playing, recon (Kismet start/stop, monitor mode), Stagbot (service dots, "Ask Stagbot": the
-  question goes to the clipboard and the chat opens). Every action is a `stag-ctl` subcommand (`stag-ctl --help`,
-  JSON out) that also works from a shell. Plasma's own network/volume/battery/bluetooth/media tray applets are not
-  loaded; notifications and clipboard stay loaded but hidden, so notification popups and DND work as usual.
+  question goes to the clipboard and the chat opens), and **Field mode** (one tile: monitor mode + gpsd + Kismet
+  logging to `~/field/<date>/` + MAC/power profile + a sleep inhibit, then uploads to stag-maps). Every action is a
+  `stag-ctl` subcommand (`stag-ctl --help`, JSON out) that also works from a shell. When field mode is on the recon
+  readout shows **FIELD** in red. Plasma's own network/volume/battery/bluetooth/media tray applets are not loaded;
+  notifications and clipboard stay loaded but hidden, so notification popups and DND work as usual.
+- **Field mode** (`stag-field on|off|status|sync`, module `field`): `on` needs the capture card, puts it into monitor
+  mode (same path as `stag-mon`), starts gpsd and Kismet (logs under `~/field/<date>/`, user owned), randomizes the
+  built-in wifi MAC only when it is not connected, drops to a battery power profile and holds a `systemd-inhibit` so
+  the laptop stays awake. `off` reverses it and syncs. `sync` uploads finished `.kismet` logs to stag-maps over
+  Tailscale (idempotent by sha256, resume-safe in `~/.local/state/stagos/field-uploads.json`, never deletes logs);
+  a `stagos-field-sync.timer` user unit catches up once back online. All privileged steps go through `sudo` like
+  `stag-mon`; no new NOPASSWD rule.
 - **StagOS Settings** (`stag-settings`, in the STAG menu, KRunner and System Settings > StagOS): top bar switches,
   dock launchers, blur and animation speed, session (crash fallback state, retry, layout reset), capture interface. It edits
   `desktop.conf` in place; the `stagos-desktop-apply.path` user unit then runs `stag-plasma-apply`. Details:

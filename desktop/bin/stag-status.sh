@@ -53,7 +53,10 @@ recon() {
     0)   emit gps recon "GPS --" off "gpsd: no fix" ;;
     *)   emit gps recon "GPS --" off "gpsd: checking" ;;
   esac
-  if m="$(stag_mon_iface)"; then
+  if stag_field_active; then
+    local fif; fif="$(stag_field_iface)"
+    emit mon recon "FIELD${fif:+ $fif}" hot "field mode: capturing${fif:+ on $fif}"
+  elif m="$(stag_mon_iface)"; then
     emit mon recon "MON $m" hot "capturing on $m"
   else
     iface="$(stag_capture_iface)"
