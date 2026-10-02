@@ -8,8 +8,10 @@
 #   stag-ctl bright get | bright set N
 #   stag-ctl media status|play-pause|next|prev
 #   stag-ctl recon status | recon kismet start|stop|open | recon mon on|off
+#   stag-ctl field on|off|status|sync       field mode (stag-field); on/off open a terminal for sudo
 #   stag-ctl stagbot status [--refresh] | stagbot open [text]
 #   stag-ctl apps | app open NAME          stag services from ~/.config/stagos/stag-services
+#   stag-ctl task add TEXT                  new task in stag-tasks (owner device, no token): {"created":true,"id":N}
 #   stag-ctl about                          host, kernel, uptime, RAM, disk, battery health
 #   stag-ctl session lock|sleep|logout|reboot|poweroff
 #   stag-ctl control                        everything the Control Center shows, one JSON line
@@ -18,7 +20,7 @@ set -uo pipefail
 . stag-lib || { echo '{"error":"stag-lib missing"}'; exit 3; }
 
 QDBUS="${STAGOS_QDBUS:-qdbus6}"
-usage() { sed -n '4,15p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '4,/^[^#]/{/^#/p}' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 fail() { printf '{"error":"%s"}\n' "$(stag_json_esc "$2")"; exit "$1"; }
 need() { stag_have "$1" || fail 3 "$1 is not installed"; }
 detach() { setsid -f "$@" </dev/null >/dev/null 2>&1; }
@@ -235,17 +237,24 @@ cmd_media() {
 
 # ---- recon: tailscale, gps, capture card, kismet ----
 recon_status() {
-  local ts gps iface mode kis=false
+  local ts gps iface mode kis=false fa=false fif remote last
   ts="$(STAGOS_CACHE_SYNC=1 stag_cached ts 10 stag_ts)"
   gps="$(STAGOS_CACHE_SYNC=1 stag_cached gps 5 stag_gps)"
   iface="$(stag_capture_iface)"
   mode="unset"; [ -n "$iface" ] && mode="$(stag_iface_mode "$iface")"
   stag_kismet_running && kis=true
-  printf '{"ts":{"up":%s,"installed":%s,"ip":"%s"},"gps":{"installed":%s,"mode":%s},"capture":{"iface":"%s","mode":"%s","monitor":"%s"},"kismet":{"running":%s}}\n' \
+  # field mode: local state is cheap; stag-maps' sync status comes from a background-refreshed cache
+  stag_field_active && fa=true
+  fif="$(stag_field_iface)"
+  last="$(stag_field_last_upload)"
+  remote="$(stag_cached field_remote 60 stag_field_remote)"
+  [[ "$remote" == *'"files"'* ]] || remote=null   # unreachable, or an error body (403 not_owner)
+  printf '{"ts":{"up":%s,"installed":%s,"ip":"%s"},"gps":{"installed":%s,"mode":%s},"capture":{"iface":"%s","mode":"%s","monitor":"%s"},"kismet":{"running":%s},"field":{"active":%s,"iface":"%s","last_upload":"%s","remote":%s}}\n' \
     "$([[ "$ts" == up* ]] && echo true || echo false)" "$([ "$ts" = none ] && echo false || echo true)" \
     "$(stag_json_esc "$([[ "$ts" == up\ * ]] && echo "${ts#up }")")" \
     "$([ "$gps" = na ] && echo false || echo true)" "$([[ "$gps" =~ ^[0-9]$ ]] && echo "$gps" || echo 0)" \
-    "$(stag_json_esc "$iface")" "$mode" "$(stag_json_esc "$(stag_mon_iface)")" "$kis"
+    "$(stag_json_esc "$iface")" "$mode" "$(stag_json_esc "$(stag_mon_iface)")" "$kis" \
+    "$fa" "$(stag_json_esc "$fif")" "$(stag_json_esc "$last")" "$remote"
 }
 term() { # run a command in a terminal window (stag-mon asks for sudo there)
   if stag_have foot; then detach foot -T "$1" -e "${@:2}"
@@ -278,6 +287,24 @@ cmd_recon() {
         # the same path as the dock's MON tile: stag-mon in a terminal (it needs sudo)
         STAGOS_CAPTURE_IFACE="$iface" term stag-mon stag-mon || fail 3 "no terminal (foot or konsole) for stag-mon"
       fi
+      recon_status ;;
+    *) usage ;;
+  esac
+}
+
+# ---- field mode: on/off need sudo (iw, ip, tlp), so they run stag-field in a terminal like the MON tile ----
+cmd_field() {
+  case "${1:-status}" in
+    status) need stag-field; stag-field status ;;
+    sync)   need stag-field; detach stag-field sync; recon_status ;;
+    on|off)
+      need stag-field
+      local iface; iface="$(stag_capture_iface)"
+      [ -n "$iface" ] || fail 3 "no capture card configured ([recon] capture_iface in desktop.conf)"
+      if [ "$1" = on ]; then
+        [ "$(stag_iface_mode "$iface")" = absent ] && fail 3 "$iface is not present (is the capture card plugged in?)"
+      fi
+      term "stag-field $1" stag-field "$1" || fail 3 "no terminal (foot or konsole) for stag-field"
       recon_status ;;
     *) usage ;;
   esac
@@ -364,6 +391,31 @@ cmd_app() {
   printf '{"opened":"%s"}\n' "$(stag_json_esc "$2")"
 }
 
+# ---- tasks: POST /api/items on stag-tasks (its v4 API). stagpad is an owner device: the tailnet identity
+# is the auth, no token. Owner writes need X-Stag-Request: 1 (the CSRF guard); curl sends no Origin. ----
+cmd_task() {
+  [[ "${1:-}" = add ]] || usage
+  shift
+  local text="$*" base out code body id re='"id": *([0-9]+)' ere='"(error|detail)": *"([^"]*)"'
+  text="${text#"${text%%[![:space:]]*}"}"; text="${text%"${text##*[![:space:]]}"}"
+  [ -n "$text" ] || fail 2 "usage: stag-ctl task add TEXT"
+  [ "${#text}" -le 500 ] || text="${text:0:500}"
+  base="$(stag_service_url tasks)" || fail 3 "no 'tasks' entry in $(stag_services_file)"
+  need curl
+  out="$(printf '{"type":"task","title":"%s"}' "$(stag_json_esc "$text")" | curl -sS --max-time 10 -X POST \
+    -H 'Content-Type: application/json' -H 'Accept: application/json' -H 'X-Stag-Request: 1' \
+    --data-binary @- -w '\n%{http_code}' "${base%/}/api/items" 2>/dev/null)" || fail 1 "stag-tasks unreachable"
+  code="${out##*$'\n'}"; body="${out%$'\n'*}"
+  if [ "$code" != 201 ] && [ "$code" != 200 ]; then
+    [[ "$body" =~ $ere ]] && fail 1 "stag-tasks: HTTP $code ${BASH_REMATCH[2]}"
+    fail 1 "stag-tasks: HTTP $code"
+  fi
+  # the Item object starts with its own "id" (nested tags come after it)
+  [[ "$body" =~ $re ]] || fail 1 "stag-tasks: no id in the answer"
+  id="${BASH_REMATCH[1]}"
+  printf '{"created":true,"id":%s,"title":"%s"}\n' "$id" "$(stag_json_esc "$text")"
+}
+
 # ---- about this computer ----
 cmd_about() {
   local host kern up d h m model="" k v _u mt=0 ma=0 b health="" cyc="" cap="" bst="" full design dt du
@@ -430,12 +482,14 @@ case "$what" in
   bright|brightness) cmd_bright "$@" ;;
   media) cmd_media "$@" ;;
   recon) cmd_recon "$@" ;;
+  field) cmd_field "$@" ;;
   stagbot) cmd_stagbot "$@" ;;
   apps) cmd_apps ;;
   app) cmd_app "$@" ;;
+  task) cmd_task "$@" ;;
   about) cmd_about ;;
   session) cmd_session "$@" ;;
   control) cmd_control ;;
-  -h|--help|help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h|--help|help) sed -n '2,/^[^#]/{/^#/p}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   *) usage ;;
 esac

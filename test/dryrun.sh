@@ -33,8 +33,17 @@ DRY_RUN=1 ./stagos-desktop
 echo; echo "== desktop helper unit tests =="
 ./test/desktop-scripts.sh
 
+echo; echo "== firewall ruleset behaviour (throwaway namespace; skips without unprivileged userns) =="
+./test/firewall-netns.sh
+
 echo; echo "== stag-ctl / stag-status / plasmoid unit tests =="
 ./test/stag-widgets.sh
+
+echo; echo "== stag-field (field mode) + sync contract =="
+./test/field.sh
+
+echo; echo "== field upload contract: stag-field sync vs the real stag-maps app (skips without a stag-maps checkout) =="
+./test/field-maps-contract.sh
 
 echo; echo "== Plasma: stag-plasma-apply, tty1 session, StagOS Settings (app tests need qml: container) =="
 ./test/plasma-apply.sh
@@ -44,5 +53,11 @@ echo; echo "== Plasma: stag-plasma-apply, tty1 session, StagOS Settings (app tes
 echo; echo "== keyd per-app keys under Plasma (module side and config invariants; KWin end to end: test/keyd-apps-container.sh) =="
 ./test/keyd-apps.sh
 
+echo; echo "== safety net: stag-backup, stag-update, stag-battery and their modules (fakes) =="
+./test/safety.sh
+
 echo; echo "== labwc-era cleanup (stagos-desktop cleanup-labwc, fakes) =="
 ./test/labwc-cleanup.sh
+
+echo; echo "== link + lab modules: stag-ctl task add, ntfy notifier, KRunner runner (fakes; real run: test/link-container.sh) =="
+./test/link.sh

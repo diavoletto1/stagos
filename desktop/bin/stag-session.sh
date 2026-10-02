@@ -24,7 +24,10 @@ log() { mkdir -p "$CACHE"; printf '%s %s\n' "$(date '+%F %T')" "$*" >> "$LOG"; }
 boot_id() { echo "${STAGOS_BOOT_ID:-$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)}"; }
 fails() {
   local n b
-  read -r n b < "$FAILS" 2>/dev/null || { echo 0; return; }
+  # no file yet (fresh HOME, first boot) means 0; test first: a failed `< file` prints its error before
+  # any 2>/dev/null on the same command takes effect
+  [ -r "$FAILS" ] || { echo 0; return; }
+  read -r n b < "$FAILS" || { echo 0; return; }
   if [[ "$n" =~ ^[0-9]+$ && "$b" == "$(boot_id)" ]]; then echo "$n"; else echo 0; fi
 }
 set_fails() { echo "$1 $(boot_id)" > "$FAILS" 2>/dev/null; }
@@ -89,7 +92,8 @@ start() {
 
 on_tty1() { [ -z "${WAYLAND_DISPLAY:-}" ] && [ "$(tty 2>/dev/null)" = /dev/tty1 ]; }
 
-mkdir -p "$CACHE"
+# --status only reads (stagos-desktop calls it, also under DRY_RUN): no cache dir for it
+case "${1:-}" in --status|status) ;; *) mkdir -p "$CACHE" ;; esac
 case "${1:-}" in
   start) start; exit ;;
   retry)

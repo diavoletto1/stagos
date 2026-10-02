@@ -7,10 +7,63 @@ t() { local n="$1" out; shift; if out=$("$@" 2>&1); then pass=$((pass+1)); echo 
 sec() { echo; echo "=== $* ==="; }
 
 phase="$1"; shift
+# ---- safety net, real tools (restic against a local repo, TLP's own parser, stag-update's plan) ----
+safety_snapshots() {
+  sec "snapshots: a real restic backup to the local test repo"
+  local C="$HOME/.config"
+  t "password file created once, 600" bash -c "test -s $C/stagos/restic.pass && test \$(stat -c %a $C/stagos/restic.pass) = 600"
+  t "systemd-analyze verify restic units" systemd-analyze verify "$C/systemd/user/stagos-restic.service" "$C/systemd/user/stagos-restic.timer"
+  t "stag-backup now (initialises the repo; /etc root-only files are skipped, rc 3 kept)" stag-backup now
+  t "a second backup, no init" bash -c "stag-backup now && test \$(grep -c 'initialising' ~/.local/state/stagos/backup.log) = 1"
+  t "restic sees 2 snapshots tagged stagos" bash -c "set -a; . $C/stagos/backup.env; set +a; RESTIC_REPOSITORY=\$STAGOS_RESTIC_REPO RESTIC_PASSWORD_FILE=\$STAGOS_RESTIC_PASSWORD_FILE restic snapshots --tag stagos --json | grep -o '\"short_id\"' | wc -l | grep -qx 2"
+  t "excludes work: ~/.cache and node_modules are not in the snapshot" bash -c "mkdir -p ~/.cache/x ~/proj/node_modules/y && echo a > ~/.cache/x/f && echo b > ~/proj/node_modules/y/f && echo c > ~/proj/keep && stag-backup now >/dev/null && set -a && . $C/stagos/backup.env && set +a && RESTIC_REPOSITORY=\$STAGOS_RESTIC_REPO RESTIC_PASSWORD_FILE=\$STAGOS_RESTIC_PASSWORD_FILE restic ls latest > /tmp/ls.txt && grep -q '/proj/keep\$' /tmp/ls.txt && ! grep -q node_modules /tmp/ls.txt && ! grep -q '/.cache/x' /tmp/ls.txt"
+  t "package lists in the snapshot" grep -q 'pkglist-explicit.txt$' /tmp/ls.txt
+  t "/etc in the snapshot" grep -q '^/etc/pacman.conf$' /tmp/ls.txt
+  t "stag-backup restore-test" stag-backup restore-test
+  t "stag-backup check (subset + prune)" stag-backup check
+  t "stag-backup status shows a recent snapshot" bash -c "stag-backup status | grep -qE '^last ok:  [0-9]+m ago'"
+  t "the password is in no log" bash -c "! grep -rqF \"\$(cat $C/stagos/restic.pass)\" ~/.local/state/stagos /tmp/sub2.log"
+}
+safety_update() {
+  sec "update: stag-update plan (no network, no changes)"
+  t "pacdiff present" command -v pacdiff
+  t "stag-update --dry-run reaches the pacman step without the news feed" bash -c "STAGOS_NEWS_URL=http://127.0.0.1:9/none stag-update --dry-run </dev/null | grep -q '\[dry\] sudo pacman -Syu'"
+  t "stag-update --status: not pinned" bash -c "stag-update --status | grep -qx 'pinned: no'"
+}
+safety_power() {
+  sec "power: TLP battery thresholds"
+  t "51-stagos-battery.conf 75/80" bash -c "grep -qx START_CHARGE_THRESH_BAT0=75 /etc/tlp.d/51-stagos-battery.conf && grep -qx STOP_CHARGE_THRESH_BAT0=80 /etc/tlp.d/51-stagos-battery.conf"
+  t "TLP's parser reads the thresholds (tlp-stat -c)" bash -c "sudo tlp-stat -c 2>&1 | grep -q 'STOP_CHARGE_THRESH_BAT0=\"80\"'"
+  t "stag-battery installed" test -x /usr/local/bin/stag-battery
+  sec "power: optimized charging (stag-charge)"
+  t "battery.conf: optimized on, hold 75/80" bash -c "grep -qx OPTIMIZED=1 /etc/stagos/battery.conf && grep -qx START=75 /etc/stagos/battery.conf && grep -qx STOP=80 /etc/stagos/battery.conf"
+  t "stag-charge, units, udev rule, polkit rule installed" bash -c "test -x /usr/local/bin/stag-charge && test -s /etc/systemd/system/stagos-charge.timer && test -s /etc/systemd/system/stagos-charge-full.service && test -s /etc/udev/rules.d/90-stagos-charge.rules && sudo test -s /etc/polkit-1/rules.d/50-stagos-charge.rules"
+  t "systemd-analyze verify: the four charge units" systemd-analyze verify /etc/systemd/system/stagos-charge.service /etc/systemd/system/stagos-charge-full.service /etc/systemd/system/stagos-charge-hold.service /etc/systemd/system/stagos-charge.timer
+  t "udev rule parses (udevadm verify)" bash -c "! command -v udevadm >/dev/null || udevadm verify --no-style /etc/udev/rules.d/90-stagos-charge.rules"
+  local f; f="$(mktemp -d)"; mkdir -p "$f/sys/class/power_supply/BAT0" "$f/sys/class/power_supply/AC"
+  echo Battery > "$f/sys/class/power_supply/BAT0/type"; echo Mains > "$f/sys/class/power_supply/AC/type"; echo 1 > "$f/sys/class/power_supply/AC/online"
+  echo 99 > "$f/sys/class/power_supply/BAT0/charge_control_start_threshold"; echo 100 > "$f/sys/class/power_supply/BAT0/charge_control_end_threshold"
+  STAGOS_SYS="$f/sys" STAGOS_CHARGE_STATE_DIR="$f/state" STAGOS_CHARGE_NOTE="$f/note" /usr/local/bin/stag-charge tick
+  t "installed stag-charge tick (fake sysfs): back to 75/80, history file written" bash -c "test \$(cat $f/sys/class/power_supply/BAT0/charge_control_end_threshold) = 80 && test \$(cat $f/sys/class/power_supply/BAT0/charge_control_start_threshold) = 75 && python -m json.tool $f/state/battery-history.json >/dev/null"
+  t "stag-battery status lists the schedule" bash -c "STAGOS_SYS=$f/sys STAGOS_CHARGE_STATE_DIR=$f/state stag-battery status | grep -q 'weekdays: *learning (0 of 5'"
+}
 if [[ "$phase" == modules ]]; then
   sec "real run, only: $*"
   ./stagos-desktop "$@"; rc=$?
-  echo "RESULT (subset): stagos-desktop exit $rc"; exit "$rc"
+  t "run 1 exits 0" test "$rc" -eq 0
+  sec "real run 2, only: $* (idempotency: nothing may change)"
+  ./stagos-desktop "$@" > /tmp/sub2.log 2>&1; t "run 2 exits 0" test $? -eq 0
+  grep -a 'wrote ' /tmp/sub2.log | sed 's/\x1b\[[0-9;]*m//g' | head -20
+  t "run 2 changed 0 files" grep -q 'files changed this run: 0$' /tmp/sub2.log
+  for m in "$@"; do
+    case "$m" in
+      snapshots) safety_snapshots ;;
+      update) safety_update ;;
+      power) safety_power ;;
+    esac
+  done
+  echo; echo "RESULT (subset $*): $pass passed, $fail failed"
+  [ "$fail" -eq 0 ]; exit
 fi
 
 # ---- module plasma: shared by the "all" and "plasma" phases ----
@@ -150,6 +203,71 @@ plasma_test_layer() {
   mkdir -p "$shots"
   t "test/plasma-settings.sh (app loads headless, round trips, screenshots)" env STAGOS_SHOT_DIR="$shots" bash test/plasma-settings.sh
 }
+
+# ---- modules network, firewall, boot (hardening): shared by the "all" and "harden" phases ----
+harden_checks() {
+  local C=/etc/NetworkManager/conf.d d=/usr/share/plymouth/themes/stagos f out
+  sec "hardening: files"
+  t "/etc/nftables.conf is the repo ruleset" cmp desktop/firewall/nftables.conf /etc/nftables.conf
+  t "/etc/nftables.d exists" test -d /etc/nftables.d
+  t "stag-fw installed" test -x /usr/local/bin/stag-fw
+  t "stag-mac installed" test -x /usr/local/bin/stag-mac
+  t "NM MAC drop-in is the repo file" cmp desktop/network/20-stagos-mac.conf "$C/20-stagos-mac.conf"
+  t "no ufw or firewalld pulled in" bash -c "! pacman -Q ufw firewalld 2>/dev/null | grep -q ."
+  sec "hardening: nftables ruleset (syntax with and without drop-ins, load, reload, behaviour)"
+  t "nft -c: ruleset parses with no drop-ins" sudo nft -c -f /etc/nftables.conf
+  sudo cp test/fixtures/nftables.d/kdeconnect.nft /etc/nftables.d/kdeconnect.nft
+  t "nft -c: ruleset parses with the KDE Connect drop-in" sudo nft -c -f /etc/nftables.conf
+  t "load the ruleset" sudo nft -f /etc/nftables.conf
+  t "reload leaves exactly one stagos table (no flush, no duplicates)" bash -c "sudo nft -f /etc/nftables.conf && test \$(sudo nft list tables | grep -c 'inet stagos') -eq 1"
+  t "input policy is drop" bash -c "sudo nft list chain inet stagos input | grep -q 'policy drop'"
+  t "the drop-in ports are inside chain input" bash -c "sudo nft list chain inet stagos input | grep -q 'dport 1714-1764 accept'"
+  t "no forward chain (libvirt and tailscale routing untouched)" bash -c "! sudo nft list table inet stagos | grep -q 'hook forward'"
+  t "other tables survive a reload" bash -c "sudo nft add table inet other_tool && sudo nft -f /etc/nftables.conf && sudo nft list tables | grep -q 'inet other_tool'"
+  t "stag-fw check" stag-fw check
+  t "stag-fw status reports ON" bash -c "stag-fw status | grep -q 'firewall: ON'"
+  # no systemd in the container: a stub systemd-run where sudo's secure_path finds it first
+  printf '#!/bin/sh\nexit 0\n' | sudo tee /usr/local/bin/systemd-run >/dev/null; sudo chmod +x /usr/local/bin/systemd-run
+  t "stag-fw off-for deletes the table" bash -c "stag-fw off-for 10m | grep -q OFF && ! sudo nft list table inet stagos"
+  sudo rm -f /usr/local/bin/systemd-run
+  t "stag-fw on puts it back" bash -c "stag-fw on && sudo nft list table inet stagos"
+  sudo nft delete table inet other_tool
+  sudo rm -f /etc/nftables.d/kdeconnect.nft
+  sec "hardening: NetworkManager MAC config"
+  out="$(NetworkManager --print-config 2>/dev/null)"
+  t "NM parses the config and reports scan randomisation" grep -q '^wifi.scan-rand-mac-address=yes' <<<"$out"
+  t "NM reports the per-connection stable default" grep -q '^wifi.cloned-mac-address=stable' <<<"$out"
+  sec "hardening: Plymouth theme"
+  for f in stagos.plymouth stagos.script bg.png logo.png panel.png dot.png hint.png err.png signin.png bar.png track.png; do
+    t "theme file $f" test -s "$d/$f"
+  done
+  t "plymouth-set-default-theme -l lists stagos" bash -c "plymouth-set-default-theme -l | grep -qx stagos"
+  t "stagos is the default theme (no -R: initramfs untouched)" bash -c "test \"\$(plymouth-set-default-theme)\" = stagos"
+  t "theme descriptor points at the installed script" grep -q "ScriptFile=$d/stagos.script" "$d/stagos.plymouth"
+  t "script balances braces and parens" bash -c "s=\$(cat assets/plymouth/stagos/stagos.script); test \$(tr -cd '{' <<<\"\$s\" | wc -c) -eq \$(tr -cd '}' <<<\"\$s\" | wc -c) && test \$(tr -cd '(' <<<\"\$s\" | wc -c) -eq \$(tr -cd ')' <<<\"\$s\" | wc -c)"
+  t "theme script uses the progress API and the password API" bash -c "grep -q SetBootProgressFunction assets/plymouth/stagos/stagos.script && grep -q SetDisplayPasswordFunction assets/plymouth/stagos/stagos.script"
+  t "no em dashes in what the hardening modules ship" bash -c "! grep -rlP '\x{2014}' desktop/firewall desktop/network desktop/bin/stag-fw.sh desktop/bin/stag-mac.sh provision/desktop/22-firewall.sh provision/desktop/23-boot.sh provision/desktop/05-network.sh assets/plymouth/stagos/stagos.script"
+}
+
+if [[ "$phase" == harden ]]; then
+  sec "static: shellcheck (hardening modules and helpers)"
+  t "shellcheck clean" shellcheck -x -s bash stagos-desktop lib/*.sh provision/desktop/05-network.sh provision/desktop/22-firewall.sh provision/desktop/23-boot.sh desktop/bin/stag-fw.sh desktop/bin/stag-mac.sh test/*.sh
+  sec "harden: dry run"
+  DRY_RUN=1 ./stagos-desktop network firewall boot > /tmp/dry.log 2>&1; t "dry run exits 0" test $? -eq 0
+  t "dry run changed nothing on disk" bash -c "! test -e /etc/nftables.d && ! test -e /usr/local/bin/stag-fw"
+  sec "harden: REAL run 1"
+  ./stagos-desktop network firewall boot > /tmp/run1.log 2>&1; t "run 1 exits 0" test $? -eq 0
+  grep -a -E 'files changed|warn|boot:' /tmp/run1.log | tail -8
+  t "run 1 prints the mkinitcpio step" grep -q 'sudo mkinitcpio -P' /tmp/run1.log
+  sec "harden: REAL run 2 (idempotency: nothing may change)"
+  ./stagos-desktop network firewall boot > /tmp/run2.log 2>&1; t "run 2 exits 0" test $? -eq 0
+  t "run 2 changed 0 files" grep -q 'files changed this run: 0$' /tmp/run2.log
+  harden_checks
+  sec "helper unit tests"
+  t "test/desktop-scripts.sh" bash test/desktop-scripts.sh
+  echo; echo "HARDEN RESULT: $pass passed, $fail failed"
+  [ "$fail" -eq 0 ]; exit
+fi
 
 if [[ "$phase" == plasma ]]; then
   sec "static: shellcheck (plasma module and helpers)"
@@ -302,9 +420,23 @@ if [[ "$phase" == fresh ]]; then
   ./stagos-desktop > /tmp/run2.log 2>&1; t "stagos-desktop run 2 exits 0" test $? -eq 0
   grep -a 'wrote ' /tmp/run2.log | sed 's/\x1b\[[0-9;]*m//g' | head -20
   t "stagos-desktop run 2 changed 0 files" grep -q 'files changed this run: 0$' /tmp/run2.log
+  sec "fresh: field mode (module field)"
+  t "/usr/local/bin/stag-field" test -x /usr/local/bin/stag-field
+  t "stag-field status parses, inactive on a fresh box" bash -c "stag-field status | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"active\"] is False'"
+  for f in systemd/user/stagos-field-sync.service systemd/user/stagos-field-sync.timer; do t "config/$f" test -s "$HOME/.config/$f"; done
+  t "field-sync units: sections and keys" python3 - "$HOME/.config/systemd/user" <<'PY'
+import configparser, sys
+def load(f):
+    c = configparser.ConfigParser(interpolation=None, strict=False); c.optionxform = str
+    c.read(sys.argv[1] + "/" + f); return c
+s, tm = load("stagos-field-sync.service"), load("stagos-field-sync.timer")
+assert s["Service"]["Type"] == "oneshot" and s["Service"]["ExecStart"] == "/usr/local/bin/stag-field sync"
+assert tm["Install"]["WantedBy"] == "timers.target" and "OnUnitActiveSec" in tm["Timer"]
+PY
   sec "fresh: nothing labwc-era installed or left"
   for p in "${STAGOS_LABWC_PKGS[@]}"; do t "not installed: $p" bash -c "! pacman -Q $p"; done
-  t "no old helpers in /usr/local/bin" bash -c "! ls ${STAGOS_LABWC_BINS[*]/#//usr/local/bin/} 2>/dev/null | grep -q ."
+  # stag-battery is a labwc-era name the power module ships again (TLP thresholds): lc_bins keeps that copy
+  t "no old helpers in /usr/local/bin" bash -c "HERE=\$PWD; source lib/common.sh; source lib/desktop.sh; source lib/labwc-cleanup.sh; test -z \"\$(lc_bins)\""
   t "no labwc-era configs" bash -c "test -z \"\$(source lib/common.sh; source lib/desktop.sh; source lib/labwc-cleanup.sh; lc_user_files)\""
   t "no leftover warning" bash -c "! grep -q cleanup-labwc /tmp/run1.log /tmp/run2.log /tmp/prov1.log"
   ASSUME_YES=1 ./stagos-desktop cleanup-labwc > /tmp/cleanup.log 2>&1
@@ -364,7 +496,11 @@ done
 for f in /etc/keyd/default.conf /etc/tlp.d/50-stagos.conf /etc/systemd/logind.conf.d/50-stagos-lid.conf; do
   t "$f" test -x "$f" -o -s "$f"
 done
-t "stagos-backup in ~/.local/bin" test -x "$HOME/.local/bin/stagos-backup"
+t "stag-backup, stag-update, stag-battery in /usr/local/bin; no labwc-era stagos-backup" bash -c "test -x /usr/local/bin/stag-backup -a -x /usr/local/bin/stag-update -a -x /usr/local/bin/stag-battery && test ! -e $HOME/.local/bin/stagos-backup -a ! -e /usr/local/bin/stagos-backup"
+t "restic password file created once, 600" bash -c "test -s $C/stagos/restic.pass && test \$(stat -c %a $C/stagos/restic.pass) = 600"
+t "backup excludes installed" cmp desktop/backup/backup.exclude "$C/stagos/backup.exclude"
+safety_power
+safety_update
 t "6 stag launchers"  bash -c "test \$(ls $HOME/.local/share/applications/stag-*.desktop | wc -l) -eq 6"
 t "stag urls only in home, not repo" bash -c "! grep -rq 'stag.test.invalid' $PWD --include='*' --exclude=local.conf --exclude-dir=.git --exclude='desktop-container*'"
 t "stag desktop entries valid Exec" grep -q 'Exec=chromium --app=https://stag.test.invalid/tasks/' "$HOME/.local/share/applications/stag-tasks.desktop"
@@ -392,7 +528,7 @@ sec "a fresh run installs nothing the labwc cleanup would remove"
 # shellcheck source=lib/labwc-cleanup.sh
 source lib/labwc-cleanup.sh
 for p in "${STAGOS_LABWC_PKGS[@]}"; do t "not installed: $p" bash -c "! pacman -Q $p"; done
-t "no old helpers in /usr/local/bin" bash -c "! ls ${STAGOS_LABWC_BINS[*]/#//usr/local/bin/} 2>/dev/null | grep -q ."
+t "no old helpers in /usr/local/bin (the current stag-battery is not one)" bash -c "HERE=\$PWD; source lib/common.sh; source lib/desktop.sh; source lib/labwc-cleanup.sh; test -z \"\$(lc_bins)\""
 
 sec "btrfs branch (simulated: real pacman installs, snapper/grub-btrfs actions dry)"
 STAGOS_ROOT_FSTYPE=btrfs DRY_RUN=1 ./stagos-desktop snapshots > /tmp/btrfs.log 2>&1

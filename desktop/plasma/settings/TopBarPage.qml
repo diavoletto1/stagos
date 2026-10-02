@@ -18,6 +18,7 @@ PageFrame {
         { key: "net", label: "Network", desc: "Wi-Fi / network status" },
         { key: "bt", label: "Bluetooth", desc: "Bluetooth status" },
         { key: "vol", label: "Volume", desc: "Output volume" },
+        { key: "bak", label: "Backup", desc: "Age of the last restic backup" },
         { key: "bat", label: "Battery", desc: "Charge level" },
         { key: "clock", label: "Clock", desc: "Date and time" }
     ]

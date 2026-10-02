@@ -1,0 +1,10 @@
+# StagOS KRunner runner (stag-krunner: t <task>, ask <question>, stag <app>). Started on demand by D-Bus
+# activation (~/.local/share/dbus-1/services/org.stagos.krunner.service) the first time KRunner queries it.
+[Unit]
+Description=StagOS KRunner runner (stag-krunner)
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.stagos.krunner
+ExecStart=/usr/bin/python3 %h/.local/lib/stagos/stag-krunner

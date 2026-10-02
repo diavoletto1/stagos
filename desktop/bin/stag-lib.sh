@@ -15,6 +15,7 @@ fi
 STAG_SYS="${STAGOS_SYS:-/sys}"
 STAG_PROC="${STAGOS_PROC:-/proc}"
 STAG_CACHE="${STAGOS_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/stagos}"
+STAG_STATE="${STAGOS_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/stagos}"
 STAG_CONF="${STAGOS_DESKTOP_CONF:-${XDG_CONFIG_HOME:-$HOME/.config}/stagos/desktop.conf}"
 STAG_CONF_DEFAULT="${STAGOS_PLASMA_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/stagos/plasma}/desktop.conf.default"
 
@@ -171,6 +172,30 @@ stag_mon_iface() { # first wifi iface in monitor mode (any card), empty when non
   return 1
 }
 stag_kismet_running() { pgrep -x kismet >/dev/null 2>&1; }
+
+# ---- field mode (stag-field): session state in ~/.local/state/stagos ----
+# field.json is written compact (one line) by stag-field, so these builtins read it cheaply.
+stag_field_file() { printf '%s' "$STAG_STATE/field.json"; }
+stag_field_active() { # rc 0 when a field session of this boot is active (a file from an earlier boot is stale)
+  local j b; j="$(stag_read "$(stag_field_file)")" || return 1
+  [[ "$j" == *'"active":true'* ]] || return 1
+  [[ "$j" =~ \"boot_id\":\"([^\"]*)\" ]] || return 0
+  b="$(stag_read "$STAG_PROC/sys/kernel/random/boot_id" 2>/dev/null)"
+  [ "${BASH_REMATCH[1]}" = "$b" ]
+}
+stag_field_iface() { # the capture iface of the active session, empty when none
+  local j; j="$(stag_read "$(stag_field_file)")" || return 1
+  [[ "$j" =~ \"iface\":\"([^\"]*)\" ]] && printf '%s' "${BASH_REMATCH[1]}"
+}
+stag_field_last_upload() { # ISO timestamp of the last successful sync, empty when never
+  stag_read "$STAG_STATE/field-last-sync" 2>/dev/null
+}
+stag_field_remote() { # stag-maps field status JSON over Tailscale, empty when unreachable (cache it)
+  stag_have curl || return 0
+  local url; url="$(stag_service_url maps)" || return 0
+  [ -n "$url" ] || return 0
+  curl -sS --max-time 4 "${url%/}/api/field/status" 2>/dev/null
+}
 
 # ---- stag services (~/.config/stagos/stag-services: "name|url" lines, from module stag) ----
 stag_services_file() { printf '%s' "${STAGOS_STAG_LIST:-${XDG_CONFIG_HOME:-$HOME/.config}/stagos/stag-services}"; }

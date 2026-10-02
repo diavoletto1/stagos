@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Stag notifications
+Comment=stag-ntfy messages (stag-alerts, stag-agents) shown by stagos-ntfy.service
+Icon=stag-ntfy
+Exec=true
+NoDisplay=true
+Terminal=false

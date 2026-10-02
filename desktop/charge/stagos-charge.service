@@ -1,0 +1,19 @@
+# StagOS optimized battery charging: one step of stag-charge (record AC changes, set the thresholds).
+# Started by stagos-charge.timer, by udev on an AC change (90-stagos-charge.rules) and after resume.
+[Unit]
+Description=StagOS optimized battery charging
+After=tlp.service suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/stag-charge tick
+StateDirectory=stagos
+RuntimeDirectory=stagos
+RuntimeDirectoryPreserve=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

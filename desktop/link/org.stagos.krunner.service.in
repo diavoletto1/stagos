@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.stagos.krunner
+Exec=/usr/bin/python3 @HOME@/.local/lib/stagos/stag-krunner
+SystemdService=stagos-krunner.service

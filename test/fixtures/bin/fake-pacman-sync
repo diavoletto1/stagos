@@ -1,0 +1,17 @@
+#!/bin/bash
+# fixture: fake pacman for stag-update / stag-backup tests (symlink it as pacman). Logs "pacman args" to $FAKE_LOG.
+# $FAKE_DIR/pacman.installed holds "name version" lines; -Q prints them, -Qqe/-Qqm print the names (foreign:
+# $FAKE_DIR/pacman.foreign). -Syu/-Syuu: $FAKE_DIR/pacman.upgrade (if present) becomes the installed set;
+# exit code from $FAKE_DIR/pacman.rc (default 0; the upgrade is not applied when it is not 0).
+echo "pacman $*" >> "${FAKE_LOG:?}"
+d="${FAKE_DIR:?}"; db="$d/pacman.installed"; touch "$db"
+case "$1" in
+  -Q) cat "$db" ;;
+  -Qqe) awk '{print $1}' "$db" ;;
+  -Qqm) cat "$d/pacman.foreign" 2>/dev/null ;;
+  -Syu|-Syuu)
+    rc="$(cat "$d/pacman.rc" 2>/dev/null || echo 0)"
+    [ "$rc" = 0 ] && [ -f "$d/pacman.upgrade" ] && cp "$d/pacman.upgrade" "$db"
+    exit "$rc" ;;
+esac
+exit 0

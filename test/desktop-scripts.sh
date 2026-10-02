@@ -44,6 +44,8 @@ session_sandbox() { # fresh HOME + fake startplasma; $1 = 1 when Plasma is "inst
 FAILS_F() { echo "$HOME/.cache/stagos/session-plasma-fails"; }
 session_sandbox 1
 check "session: next is plasma on a fresh HOME" bash -c "stag-session --status | grep -qx 'next=plasma'"
+check "session: --status on a fresh HOME prints nothing on stderr (no missing fails file error)" bash -c "test -z \"\$(stag-session --status 2>&1 >/dev/null)\""
+check "session: --status on a fresh HOME creates no cache dir (it only reads; stagos-desktop calls it under DRY_RUN too)" bash -c "test ! -e \"\${XDG_CACHE_HOME:-\$HOME/.cache}/stagos\""
 STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1; rc=$?
 check "session: start runs startplasma through the dbus wrapper" bash -c "grep -q '^dbus-wrapper $T/sess/startplasma-wayland' '$FAKE_LOG' && grep -q '^startplasma-wayland' '$FAKE_LOG'"
 check "session: clean plasma exit returns 0, no shell (the tty1 login ends)" bash -c "test $rc = 0 && ! grep -q '^login-shell' '$FAKE_LOG'"
@@ -149,8 +151,66 @@ check "base.kconf: every line is file|group|key|value" bash -c "grep -vE '^(#|$)
 check "base.kconf: no hot corner, no wobbly/magic lamp/translucency" bash -c "grep -q '^kwinrc|Effect-overview|BorderActivate|9$' '$P/base.kconf' && for e in wobblywindows magiclamp translucency; do grep -q \"^kwinrc|Plugins|\${e}Enabled|false$\" '$P/base.kconf' || exit 1; done"
 check "window edges: active title bar #111111 over inactive #0a0a0a, Breeze outline Medium" bash -c "awk '/^\\[Colors:Header\\]\$/ {g = 1; next} /^\\[/ {g = 0} g && /^BackgroundNormal=17,17,17\$/ {ok = 1} END {exit !ok}' '$P/StagOS.colors' && grep -q '^breezerc|Common|OutlineIntensity|OutlineMedium\$' '$P/base.kconf'"
 check "StagOS.colors uses the contract palette" bash -c "grep -q 'BackgroundNormal=10,10,10' '$P/StagOS.colors' && grep -q 'DecorationFocus=200,16,46' '$P/StagOS.colors' && grep -q 'ForegroundNormal=240,240,240' '$P/StagOS.colors'"
-check "desktop.conf.default: contract sections" bash -c "for s in bar dock effects recon; do grep -qx \"\\[\$s\\]\" '$P/desktop.conf.default' || exit 1; done"
+check "desktop.conf.default: contract sections" bash -c "for s in bar dock effects recon link; do grep -qx \"\\[\$s\\]\" '$P/desktop.conf.default' || exit 1; done"
 check "layout.js: dock dodges windows, bar is 26px" bash -c "grep -q 'dock.hiding = \"dodgewindows\"' '$P/layout.js' && grep -q 'bar.height = 26' '$P/layout.js'"
+
+# ---- stag-fw (firewall switch) and stag-mac (trusted wifi networks) ----
+fw_sandbox() {
+  sandbox nft systemd-run systemctl
+  printf '#!/bin/sh\nexec "$@"\n' > "$T/bin/sudo"; chmod +x "$T/bin/sudo"
+  export STAG_FW_CONF="$T/nftables.conf"; echo '# test ruleset' > "$STAG_FW_CONF"
+}
+fw_sandbox
+check "stag-fw off-for 10m: arms a 600s restore, then deletes the table" bash -c "stag-fw off-for 10m | grep -q 'OFF for 600s' && grep -n 'systemd-run.*--on-active=600s' '$FAKE_LOG' | head -1 | cut -d: -f1 > '$T/n1' && grep -n '^nft delete table inet stagos' '$FAKE_LOG' | head -1 | cut -d: -f1 > '$T/n2' && test \$(cat '$T/n1') -lt \$(cat '$T/n2')"
+check "stag-fw off-for: the restore reloads the ruleset file" grep -q "systemd-run.*/usr/bin/nft -f $STAG_FW_CONF" "$FAKE_LOG"
+fw_sandbox
+check "stag-fw off-for 2h: refused (max 1h), table untouched" bash -c "! stag-fw off-for 2h && ! grep -q 'delete table' '$FAKE_LOG'"
+check "stag-fw off-for abc: refused" bash -c "! stag-fw off-for abc && ! grep -q 'delete table' '$FAKE_LOG'"
+check "stag-fw off-for 0: refused" bash -c "! stag-fw off-for 0s"
+check "stag-fw off-for with no argument: refused" bash -c "! stag-fw off-for"
+fw_sandbox
+check "stag-fw on: syntax-checks, then loads the ruleset, cancels a pending timer" bash -c "stag-fw on | grep -q 'ON' && grep -q 'nft -c -f $STAG_FW_CONF' '$FAKE_LOG' && grep -q 'nft -f $STAG_FW_CONF' '$FAKE_LOG' && grep -q 'systemctl stop stag-fw-restore.timer' '$FAKE_LOG'"
+fw_sandbox; echo 1 > "$FAKE_DIR/nft.rc"
+check "stag-fw on: a ruleset that does not parse is never loaded" bash -c "! stag-fw on 2>/dev/null && ! grep -q '^nft -f' '$FAKE_LOG'"
+fw_sandbox
+check "stag-fw status: ON when the table lists" bash -c "stag-fw status | grep -q 'firewall: ON'"
+echo 1 > "$FAKE_DIR/nft.rc"
+check "stag-fw status: OFF when the table is gone" bash -c "stag-fw status | grep -q 'firewall: OFF'"
+check "stag-fw unknown command: usage, exit 2" bash -c "stag-fw frobnicate >/dev/null 2>&1; test \$? -eq 2"
+unset STAG_FW_CONF
+
+mac_sandbox() {
+  sandbox
+  cat > "$T/bin/nmcli" <<'NMEOF'
+#!/bin/bash
+echo "nmcli $*" >> "$FAKE_LOG"
+case "$*" in
+  "-t -f NAME,TYPE connection show") printf 'home:802-11-wireless\ncafe\\:guest:802-11-wireless\nwired:802-3-ethernet\nvpn:vpn\n' ;;
+  "-g 802-11-wireless.cloned-mac-address connection show id home") echo permanent ;;
+  "-g 802-11-wireless.cloned-mac-address connection show id cafe:guest") echo "" ;;
+esac
+NMEOF
+  chmod +x "$T/bin/nmcli"
+}
+mac_sandbox
+check "stag-mac list: only wifi connections, trusted vs random" bash -c "stag-mac list > '$T/list'; grep -q '^home .*trusted' '$T/list' && grep -q '^cafe:guest .*random per network' '$T/list' && ! grep -q 'wired\\|vpn' '$T/list'"
+check "stag-mac trust: sets the hardware MAC on that connection" bash -c "stag-mac trust home && grep -q 'nmcli connection modify id home 802-11-wireless.cloned-mac-address permanent' '$FAKE_LOG'"
+check "stag-mac untrust: clears it" bash -c "stag-mac untrust home && grep -q 'nmcli connection modify id home 802-11-wireless.cloned-mac-address \$' '$FAKE_LOG'"
+check "stag-mac trust: unknown or non-wifi connection refused" bash -c "! stag-mac trust wired 2>/dev/null && ! stag-mac trust nope 2>/dev/null && ! stag-mac trust 2>/dev/null"
+
+# ---- hardening config invariants ----
+check "nftables.conf: default deny, tailscale0 accepted, drop-ins included inside chain input" bash -c "f='$ROOT/desktop/firewall/nftables.conf'; grep -q 'policy drop' \$f && grep -q 'iifname \"tailscale0\" accept' \$f && awk '/chain input/ {g=1} g && /include \"\/etc\/nftables.d\/\*.nft\"/ {ok=1} END {exit !ok}' \$f"
+check "nftables.conf: never flushes the whole ruleset" bash -c "! grep -v '^#' '$ROOT/desktop/firewall/nftables.conf' | grep -q 'flush ruleset'"
+check "nftables.conf: allows tailscaled UDP 41641 and established/related" bash -c "grep -q 'udp dport 41641 accept' '$ROOT/desktop/firewall/nftables.conf' && grep -q 'established, related' '$ROOT/desktop/firewall/nftables.conf'"
+check "MAC drop-in: scan randomisation + stable per connection, parses as ini" python3 - "$ROOT/desktop/network/20-stagos-mac.conf" <<'PYEOF'
+import configparser, sys
+c = configparser.ConfigParser(interpolation=None)
+c.read(sys.argv[1])
+assert c["device-mac-randomization"]["wifi.scan-rand-mac-address"] == "yes"
+assert c["connection-mac-randomization"]["wifi.cloned-mac-address"] == "stable"
+PYEOF
+check "plymouth theme: every image the script loads is shipped" bash -c "cd '$ROOT/assets/plymouth/stagos' && for i in \$(grep -o 'Image(\"[a-z.]*\")\|scaled(\"[a-z.]*\")' stagos.script | grep -o '\"[a-z.]*\"' | tr -d '\"' | sort -u); do test -s \$i || { echo missing \$i; exit 1; }; done"
+check "plymouth theme: descriptor is a script theme named StagOS" bash -c "grep -q '^ModuleName=script' '$ROOT/assets/plymouth/stagos/stagos.plymouth' && grep -q '^Name=StagOS' '$ROOT/assets/plymouth/stagos/stagos.plymouth'"
 
 # ---- config invariants ----
 check "keyd map covers the ten Cmd keys" bash -c "for k in c v x z a q w t f s; do grep -q \"^\$k = C-\" '$ROOT/desktop/keyd/default.conf' || exit 1; done"
