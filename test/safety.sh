@@ -256,6 +256,44 @@ check "battery normal: sudo tlp setcharge BAT0" has "$FAKE_LOG" '^sudo tlp setch
 echo 100 > "$B/charge_control_end_threshold"
 check "battery status: stop 100 = thresholds off" bash -c "stag-battery | grep -q 'thresholds: off'"
 check "battery: unknown command exits 2" bash -c "stag-battery nope; test \$? = 2"
+echo 80 > "$B/charge_control_end_threshold"
+
+# ---- optimized charging: stag-charge CLI (fake sysfs, clock, systemd) and stag-battery's routing ----
+check "stag-charge unit tests (prediction, write order, tick state machine)" python3 "$ROOT/test/stag-charge-test.py"
+ln -s "$ROOT/desktop/bin/stag-charge.py" "$T/sb/bin/stag-charge"; ln -s "$FX/bin/fake-cmd" "$T/sb/bin/systemd-run"
+mkdir -p "$STAGOS_SYS/class/power_supply/AC"; echo Mains > "$STAGOS_SYS/class/power_supply/AC/type"; echo Battery > "$B/type"
+echo 1 > "$STAGOS_SYS/class/power_supply/AC/online"
+export STAGOS_CHARGE_CONF="$T/sb/battery.conf" STAGOS_CHARGE_STATE_DIR="$T/sb/state" STAGOS_CHARGE_NOTE="$T/sb/run/charge-note" TZ=America/New_York
+printf 'OPTIMIZED=1\nSTART=75\nSTOP=80\nLEAD_MIN=90\nWAKE=1\n' > "$STAGOS_CHARGE_CONF"
+NOW0="$(date -d '2026-10-11 22:00' +%s)"   # a Sunday night, laptop on AC
+mkdir -p "$STAGOS_CHARGE_STATE_DIR"; python3 "$FX/charge_history.py" "$NOW0" > "$STAGOS_CHARGE_STATE_DIR/battery-history.json"
+: > "$FAKE_LOG"; STAGOS_NOW="$NOW0" stag-charge tick 2>/dev/null; rc=$?
+check "charge tick: exits 0, holds at 75/80 before the window" bash -c "test $rc = 0 && test \$(cat '$B/charge_control_end_threshold') = 80"
+check "charge tick: tooltip note says when it will be full" grep -qx 'charging on hold at 80%, full by 07:15' "$STAGOS_CHARGE_NOTE"
+check "charge tick: wake timer armed for 05:45 local (09:45 UTC)" has "$FAKE_LOG" '^systemd-run .*--unit=stagos-charge-wake --on-calendar=2026-10-12 09:45:00 UTC --timer-property=WakeSystem=true'
+check "charge tick: state and history are JSON, 644" bash -c "python3 -m json.tool '$STAGOS_CHARGE_STATE_DIR/battery-state.json' >/dev/null && test \$(stat -c %a '$STAGOS_CHARGE_STATE_DIR/battery-history.json') = 644"
+STAGOS_NOW="$(date -d '2026-10-12 05:50' +%s)" stag-charge tick 2>/dev/null
+check "charge tick: in the window, thresholds 99/100 (top-off)" bash -c "test \$(cat '$B/charge_control_start_threshold') = 99 && test \$(cat '$B/charge_control_end_threshold') = 100"
+st="$(STAGOS_NOW="$(date -d '2026-10-12 05:55' +%s)" stag-battery status)"
+check "battery status: shows the learned schedule and the top-off" bash -c "grep -q 'weekdays: *usually unplugged around 07:15 (7 of 7 days)' <<< \"\$1\" && grep -q 'now: *topping off to 100% for the usual 07:15 unplug' <<< \"\$1\" && grep -q 'thresholds: off' <<< \"\$1\"" _ "$st"
+j="$(STAGOS_NOW="$NOW0" stag-charge status --json)"
+check "charge status --json parses, has the next top-off" bash -c "python3 -c 'import json,sys; j=json.loads(sys.argv[1]); assert j[\"optimized\"] and j[\"next_topoff\"][\"start\"] > 0' \"\$1\"" _ "$j"
+echo 0 > "$STAGOS_SYS/class/power_supply/AC/online"
+STAGOS_NOW="$(date -d '2026-10-12 05:52' +%s)" stag-charge tick 2>/dev/null
+check "charge tick: unplug recorded in battery-history.json, back to 75/80" bash -c "test \$(cat '$B/charge_control_end_threshold') = 80 && python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))[\"unplugs\"][-1][\"precise\"]' '$STAGOS_CHARGE_STATE_DIR/battery-history.json'"
+check "charge tick: on battery the tooltip note is gone" test ! -e "$STAGOS_CHARGE_NOTE"
+check "charge: tick without write access says to run as root" bash -c "STAGOS_CHARGE_STATE_DIR=/proc/stagos-nope stag-charge tick 2>&1 | grep -q 'run as root'; test \${PIPESTATUS[0]} = 1"
+: > "$FAKE_LOG"; stag-battery full >/dev/null 2>&1
+check "battery full (optimized): systemctl start stagos-charge-full.service, no sudo" bash -c "grep -qx 'systemctl start stagos-charge-full.service' '$FAKE_LOG' && ! grep -q '^sudo' '$FAKE_LOG'"
+: > "$FAKE_LOG"; stag-battery hold >/dev/null 2>&1
+check "battery hold (optimized): systemctl start stagos-charge-hold.service" has "$FAKE_LOG" '^systemctl start stagos-charge-hold.service$'
+: > "$FAKE_LOG"; stag-battery normal >/dev/null 2>&1
+check "battery normal = hold" has "$FAKE_LOG" '^systemctl start stagos-charge-hold.service$'
+sed -i 's/^OPTIMIZED=1/OPTIMIZED=0/' "$STAGOS_CHARGE_CONF"
+: > "$FAKE_LOG"; stag-battery hold >/dev/null 2>&1
+check "battery hold (optimized off): sudo tlp setcharge" has "$FAKE_LOG" '^sudo tlp setcharge BAT0$'
+check "charge status (optimized off) says so" bash -c "stag-charge status | grep -q 'optimized:  off (plain 75/80'"
+unset STAGOS_CHARGE_CONF STAGOS_CHARGE_STATE_DIR STAGOS_CHARGE_NOTE TZ
 
 # ---- modules (DRY_RUN off, package/system steps stubbed): power battery conf, snapshots, update ----
 mod() { # mod SCRIPT FUNC [VAR=VAL...]: source the module with the helpers and run it; prints DM_CHANGED
@@ -286,6 +324,15 @@ mod provision/desktop/12-power.sh stagos_dm_power STAGOS_BAT_START=85 STAGOS_BAT
 check "power: start >= stop falls back to 75/80 with a warning" bash -c "grep -qx START_CHARGE_THRESH_BAT0=75 '$BC' && grep -q 'out of range' '$FAKE_DIR/mod.err'"
 mod provision/desktop/12-power.sh stagos_dm_power STAGOS_BAT_START=40 STAGOS_BAT_STOP=60 >/dev/null
 check "power: custom thresholds" bash -c "grep -qx START_CHARGE_THRESH_BAT0=40 '$BC' && grep -qx STOP_CHARGE_THRESH_BAT0=60 '$BC'"
+CC="$HOME/root/etc/stagos/battery.conf"
+check "power: battery.conf for stag-charge follows the thresholds, optimized on by default" bash -c "grep -qx OPTIMIZED=1 '$CC' && grep -qx START=40 '$CC' && grep -qx STOP=60 '$CC' && grep -qx LEAD_MIN=90 '$CC'"
+check "power: stag-charge, units, udev and polkit rules installed" bash -c "test -x '$HOME/root/usr/local/bin/stag-charge' && for f in systemd/system/stagos-charge.service systemd/system/stagos-charge.timer systemd/system/stagos-charge-full.service systemd/system/stagos-charge-hold.service udev/rules.d/90-stagos-charge.rules polkit-1/rules.d/50-stagos-charge.rules; do test -s '$HOME/root/etc/'\$f || exit 1; done"
+mod provision/desktop/12-power.sh stagos_dm_power STAGOS_BAT_OPTIMIZED=0 STAGOS_BAT_TOPOFF_LEAD=5 >/dev/null
+check "power: STAGOS_BAT_OPTIMIZED=0 lands in battery.conf; a silly lead falls back to 90" bash -c "grep -qx OPTIMIZED=0 '$CC' && grep -qx LEAD_MIN=90 '$CC' && grep -q 'TOPOFF_LEAD=5 out of range' '$FAKE_DIR/mod.err'"
+mod provision/desktop/12-power.sh stagos_dm_power STAGOS_BAT_FULL=1 >/dev/null
+check "power: STAGOS_BAT_FULL=1 turns optimized charging off" grep -qx OPTIMIZED=0 "$CC"
+mod provision/desktop/12-power.sh stagos_dm_power >/dev/null
+check "power: run 2 after defaults changes 0 files" test "$(mod provision/desktop/12-power.sh stagos_dm_power)" = 0
 
 sandbox
 SN=(provision/desktop/13-snapshots.sh stagos_dm_snapshots STAGOS_ROOT_FSTYPE=ext4 "STAGOS_RESTIC_REPO=sftp:backuphost:/srv/restic/laptop")
@@ -307,7 +354,12 @@ n4="$(mod provision/desktop/13-snapshots.sh stagos_dm_snapshots STAGOS_ROOT_FSTY
 check "snapshots: no repo, no password file, no units" bash -c "test '$n4' = 0 && test ! -e '$HOME/.config/stagos/restic.pass'"
 
 # ---- static ----
-check "unit files parse as systemd INI (section headers, key=value)" bash -c "! grep -vE '^(\[[A-Za-z]+\]|[A-Za-z]+=.*|#.*|)$' '$ROOT/desktop/systemd/stagos-restic.service' '$ROOT/desktop/systemd/stagos-restic.timer'"
+check "unit files parse as systemd INI (section headers, key=value)" bash -c "! grep -vE '^(\[[A-Za-z]+\]|[A-Za-z]+=.*|#.*|)$' '$ROOT/desktop/systemd/stagos-restic.service' '$ROOT/desktop/systemd/stagos-restic.timer' '$ROOT'/desktop/charge/*.service '$ROOT'/desktop/charge/*.timer"
+PK="$ROOT/desktop/charge/50-stagos-charge.rules"
+check "polkit rule: verb start only" grep -qF 'action.lookup("verb") === "start"' "$PK"
+check "polkit rule: names exactly the two override units" bash -c "test \"\$(grep -o 'stagos-charge-[a-z]*[.]service' '$PK' | sort -u | xargs)\" = 'stagos-charge-full.service stagos-charge-hold.service'"
+check "polkit rule: local, active, wheel" grep -qF '!subject.local || !subject.active || !subject.isInGroup("wheel")' "$PK"
+check "stag-charge: python compiles, no em dash anywhere in the feature" bash -c "python3 -m py_compile '$ROOT/desktop/bin/stag-charge.py' && ! grep -rqP '\x{2014}' '$ROOT/desktop/bin/stag-charge.py' '$ROOT/desktop/charge' '$ROOT/test/stag-charge-test.py' '$FX/charge_history.py'"
 check "backup.exclude covers caches, Trash, Steam, node_modules, .venv" bash -c "for p in '\$HOME/.cache' '\$HOME/.local/share/Trash' '\$HOME/.local/share/Steam' node_modules .venv; do grep -qxF \"\$p\" '$ROOT/desktop/backup/backup.exclude' || exit 1; done"
 check "shellcheck (info) clean: safety scripts, modules, this test" shellcheck -S info -x -s bash \
   "$ROOT"/desktop/bin/stag-{backup,update,battery}.sh "$ROOT"/provision/desktop/{12-power,13-snapshots,18-update}.sh "$ROOT/test/safety.sh" \

@@ -60,6 +60,9 @@ echo 9 > "$STAGOS_SYS/class/power_supply/BAT0/capacity"
 jcheck "status: low battery is hot" "$(stag-status --json)" '(.fields[] | select(.id=="bat") | .state) == "hot"'
 echo Charging > "$STAGOS_SYS/class/power_supply/BAT0/status"
 jcheck "status: charging shows +" "$(stag-status --json)" '(.fields[] | select(.id=="bat") | .text) == "BAT 9+"'
+jcheck "status: no charge note, no extra tooltip text" "$(STAGOS_CHARGE_NOTE=/nonexistent stag-status --json)" '(.fields[] | select(.id=="bat") | .tooltip | test("hold") | not)'
+echo "charging on hold at 80%, full by 07:15" > "$T/charge-note"
+jcheck "status: optimized charging note in the battery tooltip" "$(STAGOS_CHARGE_NOTE="$T/charge-note" stag-status --json)" '(.fields[] | select(.id=="bat") | .tooltip | endswith("charging on hold at 80%, full by 07:15"))'
 # BAK: off unless [bar] bak=true; age and state from stag-backup's backup.state
 jcheck "status: bak is off by default" "$(stag-status --json)" '[.fields[].id] | index("bak") == null'
 printf '[bar]\nbak=true\n' > "$HOME/.config/stagos/desktop.conf"

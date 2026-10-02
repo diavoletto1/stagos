@@ -35,6 +35,17 @@ safety_power() {
   t "51-stagos-battery.conf 75/80" bash -c "grep -qx START_CHARGE_THRESH_BAT0=75 /etc/tlp.d/51-stagos-battery.conf && grep -qx STOP_CHARGE_THRESH_BAT0=80 /etc/tlp.d/51-stagos-battery.conf"
   t "TLP's parser reads the thresholds (tlp-stat -c)" bash -c "sudo tlp-stat -c 2>&1 | grep -q 'STOP_CHARGE_THRESH_BAT0=\"80\"'"
   t "stag-battery installed" test -x /usr/local/bin/stag-battery
+  sec "power: optimized charging (stag-charge)"
+  t "battery.conf: optimized on, hold 75/80" bash -c "grep -qx OPTIMIZED=1 /etc/stagos/battery.conf && grep -qx START=75 /etc/stagos/battery.conf && grep -qx STOP=80 /etc/stagos/battery.conf"
+  t "stag-charge, units, udev rule, polkit rule installed" bash -c "test -x /usr/local/bin/stag-charge && test -s /etc/systemd/system/stagos-charge.timer && test -s /etc/systemd/system/stagos-charge-full.service && test -s /etc/udev/rules.d/90-stagos-charge.rules && sudo test -s /etc/polkit-1/rules.d/50-stagos-charge.rules"
+  t "systemd-analyze verify: the four charge units" systemd-analyze verify /etc/systemd/system/stagos-charge.service /etc/systemd/system/stagos-charge-full.service /etc/systemd/system/stagos-charge-hold.service /etc/systemd/system/stagos-charge.timer
+  t "udev rule parses (udevadm verify)" bash -c "! command -v udevadm >/dev/null || udevadm verify --no-style /etc/udev/rules.d/90-stagos-charge.rules"
+  local f; f="$(mktemp -d)"; mkdir -p "$f/sys/class/power_supply/BAT0" "$f/sys/class/power_supply/AC"
+  echo Battery > "$f/sys/class/power_supply/BAT0/type"; echo Mains > "$f/sys/class/power_supply/AC/type"; echo 1 > "$f/sys/class/power_supply/AC/online"
+  echo 99 > "$f/sys/class/power_supply/BAT0/charge_control_start_threshold"; echo 100 > "$f/sys/class/power_supply/BAT0/charge_control_end_threshold"
+  STAGOS_SYS="$f/sys" STAGOS_CHARGE_STATE_DIR="$f/state" STAGOS_CHARGE_NOTE="$f/note" /usr/local/bin/stag-charge tick
+  t "installed stag-charge tick (fake sysfs): back to 75/80, history file written" bash -c "test \$(cat $f/sys/class/power_supply/BAT0/charge_control_end_threshold) = 80 && test \$(cat $f/sys/class/power_supply/BAT0/charge_control_start_threshold) = 75 && python -m json.tool $f/state/battery-history.json >/dev/null"
+  t "stag-battery status lists the schedule" bash -c "STAGOS_SYS=$f/sys STAGOS_CHARGE_STATE_DIR=$f/state stag-battery status | grep -q 'weekdays: *learning (0 of 5'"
 }
 if [[ "$phase" == modules ]]; then
   sec "real run, only: $*"
