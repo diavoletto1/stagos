@@ -64,16 +64,69 @@ On stagpad: `cd /opt/stagos && git pull && ./stagos-desktop`, then log out and b
 | `network` | NetworkManager (UI: Plasma's plasma-nm). Touches nothing about wifi modes: the capture-card `unmanaged-devices` drop-in from `30-services` is left alone and no MAC-randomisation drop-ins are added, so the monitor-mode tooling is unaffected |
 | `audio` | pipewire, pipewire-pulse/alsa, wireplumber, pavucontrol, playerctl; volume, mic-mute and media keys are Plasma's |
 | `keys` | keyd: **Super acts as Cmd**. See map below |
-| `power` | **TLP** kept (see note), lid close = suspend (docked with external display = ignore), fwupd + refresh timer. Idle dimming, the lock screen and low battery are Plasma's (powerdevil, kscreenlocker; keys in `desktop/plasma/base.kconf`) |
-| `snapshots` | Detects the root filesystem. **btrfs**: snapper + snap-pac (snapshot around every pacman transaction) + grub-btrfs (GRUB). **Anything else** (the default ext4): restic to `STAGOS_RESTIC_REPO` from `config/local.conf` via the `stagos-restic.timer` user timer; without a repo it installs restic and warns |
+| `power` | **TLP** kept (see note), lid close = suspend (docked with external display = ignore), fwupd + refresh timer. **Battery care**: charge thresholds start 75 / stop 80 (`STAGOS_BAT_START`/`STAGOS_BAT_STOP` in `config/stagos.conf`, `STAGOS_BAT_FULL=1` = always 100%) in `/etc/tlp.d/51-stagos-battery.conf`; `stag-battery full` charges to 100% once for a trip. Idle dimming, the lock screen and low battery are Plasma's (powerdevil, kscreenlocker; keys in `desktop/plasma/base.kconf`) |
+| `snapshots` | Detects the root filesystem. **btrfs**: snapper + snap-pac (snapshot around every pacman transaction) + grub-btrfs (GRUB). **Anything else** (the default ext4): restic backups with `stag-backup` (see [Backups](#backups-and-updates)) to `STAGOS_RESTIC_REPO` from `config/local.conf`, driven by the `stagos-restic.timer` user timer; creates the repo password file once; without a repo it installs restic and warns |
 | `apps` | chromium (Wayland flags), obsidian, spotify-launcher, blender, freecad, openscad, arm-none-eabi gcc/newlib, foot + StagOS zsh, Mission Center, gnome-disks, Papers, imv, xournalpp, virt-manager (+libvirt), onedrive (AUR), libreoffice-fresh, gnome-calculator, Claude web app launcher, Claude Code CLI (npm, `~/.local`), Flatpak + Flathub with Bambu Studio and LocalSend. `STAGOS_APPS_EXCLUDE="blender freecad"` skips packages on a small disk |
 | `keyring` | gnome-keyring + seahorse. With `STAGOS_KEYRING_EMPTY=1` creates a login keyring with an empty password so it opens under autologin; **off by default**, see the note |
 | `stag` | `chromium --app` launcher per service in `STAGOS_STAG_PATHS` at `<scheme>://<host>/<name>/` (from `config/local.conf`), icon tiles, listed in the STAG menu and KRunner. URLs are written only under `~/.local` and `~/.config` |
 | `hidpi` | Inter + JetBrains Mono, fontconfig light hinting with grayscale AA, `desktop.env` with the panel scale `STAGOS_OUTPUT_SCALE` (default 1.5, applied by the plasma module at the first login) |
+| `update` | `stag-update`, the safe update wrapper (see [Updates](#backups-and-updates)) and pacman-contrib (pacdiff) |
 | `plasma` | the KDE Plasma 6 Wayland session (see [Plasma](#plasma)): StagOS HUD look, top bar + floating dock, touchpad, night light, Spectacle keys, `stag-session` on tty1, keyd's per-app keys (`stagos-keyd-apps.service`). `STAGOS_DESKTOP_PLASMA=0` skips it |
 
 **Why TLP, not power-profiles-daemon:** the repo already enables TLP; the two conflict; TLP's runtime PM and USB/PCIe/SATA
 tuning matter more on a 2014 ThinkPad battery than PPD's three profiles.
+
+### Backups and updates
+
+**Backups** (`stag-backup`, module `snapshots` on a non-btrfs root). restic over SFTP to the home server
+(`STAGOS_RESTIC_REPO="sftp:SERVER:/path"` in `config/local.conf`; Tailscale SSH, so no keys). Backed up: `$HOME` and
+`/etc` (root-only files in `/etc` are skipped and noted; the snapshot still counts), with the package lists
+(`pacman -Qqe`, `-Qqm`) written to `~/.local/state/stagos/` first. Excluded: caches, Trash, Steam/Flatpak runtimes,
+browser caches, `node_modules`, `.venv` and friends (`desktop/backup/backup.exclude`, plus any `CACHEDIR.TAG` dir).
+Retention: 7 daily, 4 weekly, 6 monthly; every week `restic check` reads a 5% data subset and prunes.
+
+The `stagos-restic.timer` tries every hour; `stag-backup run` makes at most one good backup per 20 h
+(`STAGOS_BACKUP_EVERY_H`), only on AC power and only when the server answers (otherwise it skips quietly and the
+next hour tries again). A failed backup pings ntfy when `STAGOS_BACKUP_NTFY_URL` (and optionally a 600 token file,
+`STAGOS_BACKUP_NTFY_TOKEN_FILE`) is set; nothing is sent otherwise. The repo password is created once, at random, in
+`~/.config/stagos/restic.pass` (600). **Copy it to a password manager**: it is never printed, and without it no
+backup can be restored.
+
+```
+stag-backup now            # back up now (any power source)
+stag-backup status         # age of the last good snapshot, last run, last check, the timer
+stag-backup restore-test   # restore a few files of the newest snapshot to a temp dir and verify them
+stag-backup check          # the weekly check + prune, now
+```
+
+The top bar can show the backup age (`BAK 5h`, hot after a failed run or past 3 days): `[bar] bak=true` in
+`~/.config/stagos/desktop.conf` or StagOS Settings > Top Bar > Backup. Off by default.
+
+**Updates** (`stag-update`, module `update`). One command instead of `sudo pacman -Syu`:
+
+1. shows the [Arch news](https://archlinux.org/news/) posted since the last run and asks before going on;
+2. takes a backup (`stag-backup now`; if the server is away or the backup fails it warns and asks; on btrfs snap-pac does it);
+3. `sudo pacman -Syu`;
+4. lists `.pacnew`/`.pacsave` files (`pacdiff -o`) and offers `pacdiff` (`DIFFPROG`, else `nvim -d` when installed);
+5. lists failed system and user units, and says whether a reboot is needed (running kernel gone) or recommended
+   (kernel, microcode, systemd, glibc, mesa, Plasma, Qt updated).
+
+Everything goes to `~/.local/state/stagos/update.log`. `stag-update --dry-run` prints the plan and changes nothing.
+
+**Archive pin (off by default).** To hold the box at a known-good day of the
+[Arch Linux Archive](https://archive.archlinux.org/):
+
+```
+stag-update --pin 2026/09/15   # mirrorlist -> that day (the old one is kept as mirrorlist.stagos-unpinned)
+stag-update --to 2026/09/15    # sync the system to the pinned day (pacman -Syuu; downgrades anything newer)
+stag-update                    # while pinned: never goes past the pinned day
+stag-update --to 2026/10/01    # move forward to a newer day (-Syuu); if it does not finish, the old pin comes back
+stag-update --unpin            # back to the normal mirrors, then: stag-update
+stag-update --status           # pinned or not
+```
+
+The date must exist in the archive (checked before anything is written). While pinned, `provision/00-repos.sh`
+leaves the mirrorlist alone (no reflector).
 
 ### Mac-like keys (module `keys`)
 
@@ -220,6 +273,7 @@ which waybar pulled in too) is marked explicitly installed first, so it stays. R
 ./test/desktop-scripts.sh                    # stag-session, stag-plasma-apply, config invariants; fakes from test/fixtures/bin
 ./test/stag-widgets.sh                       # stag-ctl, stag-status, plasmoids
 ./test/plasma-apply.sh ./test/plasma-session.sh ./test/plasma-settings.sh   # Plasma apply, tty1 block, StagOS Settings
+./test/safety.sh                             # stag-backup, stag-update (news, pacdiff, archive pin), stag-battery, modules power/snapshots/update; fakes
 ./test/labwc-cleanup.sh                      # cleanup-labwc against a fake old HOME (fake pacman, sudo)
 ./test/keyd-apps.sh                          # keyd per-app keys: the plasma module's user unit (fake systemctl), app.conf invariants
 ./test/desktop-container.sh all              # rootless podman Arch: shellcheck, dry run, real run, 2nd run must change 0 files, per-module reruns, config validation, btrfs branch
@@ -228,6 +282,7 @@ which waybar pulled in too) is marked explicitly installed first, so it stays. R
 ./test/labwc-migrate-container.sh            # old main (labwc era) installed, then this tree, cleanup-labwc, then the smoke
 ./test/keyd-apps-container.sh                # real KWin + the real keyd-application-mapper, a fake keyd: foot's rows follow focus; keyd check on every row
 ./test/fresh-install-container.sh            # clean box: provision 60/65 + every module, twice (0 changes), nothing labwc, then the smoke
+./test/desktop-container.sh power snapshots update   # those modules twice (run 2 = 0 changes), a real restic backup + restore-test, TLP's parser
 ./test/desktop-container.sh clean            # remove the image and package cache
 ```
 
@@ -239,8 +294,10 @@ which waybar pulled in too) is marked explicitly installed first, so it stays. R
 2. Print, Shift+Print, Meta+Shift+R (Spectacle region, full screen, region recording); Super+Shift+3/4/5 the same.
 3. Trackpad: tap, natural scroll, palm rejection while typing, the 3/4-finger swipes (desktops, Overview).
 4. Top bar + dock at 1.5x on the 2560x1440 panel; Meta+Space opens KRunner; a window reopens where it was closed.
-5. Bluetooth pairing via bluedevil; audio keys; `tlp-stat -s`; lid close suspends and the lock screen is up on resume; low-battery notice.
+5. Bluetooth pairing via bluedevil; audio keys; `tlp-stat -s`; `sudo tlp setcharge` then `stag-battery` shows 75/80; lid close suspends and the lock screen is up on resume; low-battery notice.
 6. `fwupdmgr get-updates`; Night Light from the Control Center.
-7. `systemctl --user status stagos-restic.timer`, one manual `systemctl --user start stagos-restic.service`; on btrfs: `snapper list` after a pacman run.
+7. Backups: copy `~/.config/stagos/restic.pass` to a password manager; `stag-backup now` (first run initialises the repo),
+   `stag-backup restore-test`, `stag-backup status`; `systemctl --user list-timers stagos-restic.timer`; on btrfs: `snapper list` after a pacman run.
+   Updates: `stag-update --dry-run`, then `stag-update`.
 8. gnome-keyring: a chromium password save survives a reboot (with the flag on); `onedrive` authorisation; Flatpak installs of Bambu Studio and LocalSend.
 9. tty1 fallback: `stag-session --status` says `next=plasma`; tty2 still gives a plain shell.

@@ -7,10 +7,52 @@ t() { local n="$1" out; shift; if out=$("$@" 2>&1); then pass=$((pass+1)); echo 
 sec() { echo; echo "=== $* ==="; }
 
 phase="$1"; shift
+# ---- safety net, real tools (restic against a local repo, TLP's own parser, stag-update's plan) ----
+safety_snapshots() {
+  sec "snapshots: a real restic backup to the local test repo"
+  local C="$HOME/.config"
+  t "password file created once, 600" bash -c "test -s $C/stagos/restic.pass && test \$(stat -c %a $C/stagos/restic.pass) = 600"
+  t "systemd-analyze verify restic units" systemd-analyze verify "$C/systemd/user/stagos-restic.service" "$C/systemd/user/stagos-restic.timer"
+  t "stag-backup now (initialises the repo; /etc root-only files are skipped, rc 3 kept)" stag-backup now
+  t "a second backup, no init" bash -c "stag-backup now && test \$(grep -c 'initialising' ~/.local/state/stagos/backup.log) = 1"
+  t "restic sees 2 snapshots tagged stagos" bash -c "set -a; . $C/stagos/backup.env; set +a; RESTIC_REPOSITORY=\$STAGOS_RESTIC_REPO RESTIC_PASSWORD_FILE=\$STAGOS_RESTIC_PASSWORD_FILE restic snapshots --tag stagos --json | grep -o '\"short_id\"' | wc -l | grep -qx 2"
+  t "excludes work: ~/.cache and node_modules are not in the snapshot" bash -c "mkdir -p ~/.cache/x ~/proj/node_modules/y && echo a > ~/.cache/x/f && echo b > ~/proj/node_modules/y/f && echo c > ~/proj/keep && stag-backup now >/dev/null && set -a && . $C/stagos/backup.env && set +a && RESTIC_REPOSITORY=\$STAGOS_RESTIC_REPO RESTIC_PASSWORD_FILE=\$STAGOS_RESTIC_PASSWORD_FILE restic ls latest > /tmp/ls.txt && grep -q '/proj/keep\$' /tmp/ls.txt && ! grep -q node_modules /tmp/ls.txt && ! grep -q '/.cache/x' /tmp/ls.txt"
+  t "package lists in the snapshot" grep -q 'pkglist-explicit.txt$' /tmp/ls.txt
+  t "/etc in the snapshot" grep -q '^/etc/pacman.conf$' /tmp/ls.txt
+  t "stag-backup restore-test" stag-backup restore-test
+  t "stag-backup check (subset + prune)" stag-backup check
+  t "stag-backup status shows a recent snapshot" bash -c "stag-backup status | grep -qE '^last ok:  [0-9]+m ago'"
+  t "the password is in no log" bash -c "! grep -rqF \"\$(cat $C/stagos/restic.pass)\" ~/.local/state/stagos /tmp/sub2.log"
+}
+safety_update() {
+  sec "update: stag-update plan (no network, no changes)"
+  t "pacdiff present" command -v pacdiff
+  t "stag-update --dry-run reaches the pacman step without the news feed" bash -c "STAGOS_NEWS_URL=http://127.0.0.1:9/none stag-update --dry-run </dev/null | grep -q '\[dry\] sudo pacman -Syu'"
+  t "stag-update --status: not pinned" bash -c "stag-update --status | grep -qx 'pinned: no'"
+}
+safety_power() {
+  sec "power: TLP battery thresholds"
+  t "51-stagos-battery.conf 75/80" bash -c "grep -qx START_CHARGE_THRESH_BAT0=75 /etc/tlp.d/51-stagos-battery.conf && grep -qx STOP_CHARGE_THRESH_BAT0=80 /etc/tlp.d/51-stagos-battery.conf"
+  t "TLP's parser reads the thresholds (tlp-stat -c)" bash -c "sudo tlp-stat -c 2>&1 | grep -q 'STOP_CHARGE_THRESH_BAT0=\"80\"'"
+  t "stag-battery installed" test -x /usr/local/bin/stag-battery
+}
 if [[ "$phase" == modules ]]; then
   sec "real run, only: $*"
   ./stagos-desktop "$@"; rc=$?
-  echo "RESULT (subset): stagos-desktop exit $rc"; exit "$rc"
+  t "run 1 exits 0" test "$rc" -eq 0
+  sec "real run 2, only: $* (idempotency: nothing may change)"
+  ./stagos-desktop "$@" > /tmp/sub2.log 2>&1; t "run 2 exits 0" test $? -eq 0
+  grep -a 'wrote ' /tmp/sub2.log | sed 's/\x1b\[[0-9;]*m//g' | head -20
+  t "run 2 changed 0 files" grep -q 'files changed this run: 0$' /tmp/sub2.log
+  for m in "$@"; do
+    case "$m" in
+      snapshots) safety_snapshots ;;
+      update) safety_update ;;
+      power) safety_power ;;
+    esac
+  done
+  echo; echo "RESULT (subset $*): $pass passed, $fail failed"
+  [ "$fail" -eq 0 ]; exit
 fi
 
 # ---- module plasma: shared by the "all" and "plasma" phases ----
@@ -304,7 +346,8 @@ if [[ "$phase" == fresh ]]; then
   t "stagos-desktop run 2 changed 0 files" grep -q 'files changed this run: 0$' /tmp/run2.log
   sec "fresh: nothing labwc-era installed or left"
   for p in "${STAGOS_LABWC_PKGS[@]}"; do t "not installed: $p" bash -c "! pacman -Q $p"; done
-  t "no old helpers in /usr/local/bin" bash -c "! ls ${STAGOS_LABWC_BINS[*]/#//usr/local/bin/} 2>/dev/null | grep -q ."
+  # stag-battery is a labwc-era name the power module ships again (TLP thresholds): lc_bins keeps that copy
+  t "no old helpers in /usr/local/bin" bash -c "HERE=\$PWD; source lib/common.sh; source lib/desktop.sh; source lib/labwc-cleanup.sh; test -z \"\$(lc_bins)\""
   t "no labwc-era configs" bash -c "test -z \"\$(source lib/common.sh; source lib/desktop.sh; source lib/labwc-cleanup.sh; lc_user_files)\""
   t "no leftover warning" bash -c "! grep -q cleanup-labwc /tmp/run1.log /tmp/run2.log /tmp/prov1.log"
   ASSUME_YES=1 ./stagos-desktop cleanup-labwc > /tmp/cleanup.log 2>&1
@@ -364,7 +407,11 @@ done
 for f in /etc/keyd/default.conf /etc/tlp.d/50-stagos.conf /etc/systemd/logind.conf.d/50-stagos-lid.conf; do
   t "$f" test -x "$f" -o -s "$f"
 done
-t "stagos-backup in ~/.local/bin" test -x "$HOME/.local/bin/stagos-backup"
+t "stag-backup, stag-update, stag-battery in /usr/local/bin; no labwc-era stagos-backup" bash -c "test -x /usr/local/bin/stag-backup -a -x /usr/local/bin/stag-update -a -x /usr/local/bin/stag-battery && test ! -e $HOME/.local/bin/stagos-backup -a ! -e /usr/local/bin/stagos-backup"
+t "restic password file created once, 600" bash -c "test -s $C/stagos/restic.pass && test \$(stat -c %a $C/stagos/restic.pass) = 600"
+t "backup excludes installed" cmp desktop/backup/backup.exclude "$C/stagos/backup.exclude"
+safety_power
+safety_update
 t "6 stag launchers"  bash -c "test \$(ls $HOME/.local/share/applications/stag-*.desktop | wc -l) -eq 6"
 t "stag urls only in home, not repo" bash -c "! grep -rq 'stag.test.invalid' $PWD --include='*' --exclude=local.conf --exclude-dir=.git --exclude='desktop-container*'"
 t "stag desktop entries valid Exec" grep -q 'Exec=chromium --app=https://stag.test.invalid/tasks/' "$HOME/.local/share/applications/stag-tasks.desktop"
@@ -392,7 +439,7 @@ sec "a fresh run installs nothing the labwc cleanup would remove"
 # shellcheck source=lib/labwc-cleanup.sh
 source lib/labwc-cleanup.sh
 for p in "${STAGOS_LABWC_PKGS[@]}"; do t "not installed: $p" bash -c "! pacman -Q $p"; done
-t "no old helpers in /usr/local/bin" bash -c "! ls ${STAGOS_LABWC_BINS[*]/#//usr/local/bin/} 2>/dev/null | grep -q ."
+t "no old helpers in /usr/local/bin (the current stag-battery is not one)" bash -c "HERE=\$PWD; source lib/common.sh; source lib/desktop.sh; source lib/labwc-cleanup.sh; test -z \"\$(lc_bins)\""
 
 sec "btrfs branch (simulated: real pacman installs, snapper/grub-btrfs actions dry)"
 STAGOS_ROOT_FSTYPE=btrfs DRY_RUN=1 ./stagos-desktop snapshots > /tmp/btrfs.log 2>&1
