@@ -99,6 +99,11 @@ stagos_link_kdeconnect() {
   dm_install "$HERE/desktop/link/kdeconnect.nft" /etc/nftables.d/kdeconnect.nft 644 sudo
   local rs
   if ! dm_dry && have nft && rs="$(sudo nft list ruleset 2>/dev/null)" && [[ -n "$rs" && "$rs" != *1714-1764* ]]; then
-    dm_note "link: a firewall is active without the KDE Connect ports: sudo systemctl reload nftables (or the firewall's own reload)"
+    # the StagOS firewall (module firewall) is loaded without the drop-in: reload just its table
+    if [[ "$rs" == *"table inet stagos"* ]] && sudo nft -c -f /etc/nftables.conf 2>/dev/null; then
+      run sudo nft -f /etc/nftables.conf || dm_note "link: could not reload the firewall; run: stag-fw on"
+    else
+      dm_note "link: a firewall is active without the KDE Connect ports; reload it (StagOS firewall: stag-fw on)"
+    fi
   fi
 }
