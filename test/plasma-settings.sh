@@ -51,7 +51,7 @@ c = configparser.ConfigParser(interpolation=None); c.read(sys.argv[1] + "/deskto
 for s in c.sections():
     for k in c[s]: print(f"{s}.{k}")
 PY
-want="bar.stag_menu bar.appmenu bar.recon bar.stagbot bar.cpu bar.ram bar.temp bar.net bar.bt bar.vol bar.bak bar.bat bar.clock bar.clock_format dock.launchers effects.blur effects.animation_factor recon.capture_iface"
+want="bar.stag_menu bar.appmenu bar.recon bar.stagbot bar.cpu bar.ram bar.temp bar.net bar.bt bar.vol bar.bak bar.bat bar.clock bar.clock_format dock.launchers effects.blur effects.animation_factor recon.capture_iface link.ntfy"
 check "desktop.conf.default has exactly the contract keys, in order" test "$(tr '\n' ' ' < "$T/keys")" = "$want "
 check "every default key has a comment line right above it (or its group)" python3 - "$ROOT/desktop/plasma/desktop.conf.default" <<'PY'
 import sys

@@ -1,0 +1,19 @@
+# StagOS: stag-ntfy topics (stag-alerts, stag-agents) as native Plasma notifications (stag-ntfy-notify).
+# Installed and enabled by the module link; starts and stops with the Plasma session. Settings in
+# ~/.config/stagos/link.env (module link), the password or token in ~/.config/stagos/ntfy.credentials (600).
+# Off switch: [link] ntfy=false in ~/.config/stagos/desktop.conf (read live, the process then idles).
+[Unit]
+Description=stag-ntfy notifications (stag-ntfy-notify)
+PartOf=graphical-session.target
+After=plasma-plasmashell.service
+ConditionPathExists=%h/.local/lib/stagos/stag-ntfy-notify
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/lib/stagos/stag-ntfy-notify
+# the subscriber reconnects by itself; this only covers a crash
+Restart=on-failure
+RestartSec=10
+Nice=10
+
+[Install]
+WantedBy=plasma-workspace.target
