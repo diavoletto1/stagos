@@ -10,6 +10,7 @@
 #   stag-ctl recon status | recon kismet start|stop|open | recon mon on|off
 #   stag-ctl stagbot status [--refresh] | stagbot open [text]
 #   stag-ctl apps | app open NAME          stag services from ~/.config/stagos/stag-services
+#   stag-ctl task add TEXT                  new task in stag-tasks (owner device, no token): {"created":true,"id":N}
 #   stag-ctl about                          host, kernel, uptime, RAM, disk, battery health
 #   stag-ctl session lock|sleep|logout|reboot|poweroff
 #   stag-ctl control                        everything the Control Center shows, one JSON line
@@ -18,7 +19,7 @@ set -uo pipefail
 . stag-lib || { echo '{"error":"stag-lib missing"}'; exit 3; }
 
 QDBUS="${STAGOS_QDBUS:-qdbus6}"
-usage() { sed -n '4,15p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '4,16p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 fail() { printf '{"error":"%s"}\n' "$(stag_json_esc "$2")"; exit "$1"; }
 need() { stag_have "$1" || fail 3 "$1 is not installed"; }
 detach() { setsid -f "$@" </dev/null >/dev/null 2>&1; }
@@ -364,6 +365,31 @@ cmd_app() {
   printf '{"opened":"%s"}\n' "$(stag_json_esc "$2")"
 }
 
+# ---- tasks: POST /api/items on stag-tasks (its v4 API). stagpad is an owner device: the tailnet identity
+# is the auth, no token. Owner writes need X-Stag-Request: 1 (the CSRF guard); curl sends no Origin. ----
+cmd_task() {
+  [[ "${1:-}" = add ]] || usage
+  shift
+  local text="$*" base out code body id re='"id": *([0-9]+)' ere='"(error|detail)": *"([^"]*)"'
+  text="${text#"${text%%[![:space:]]*}"}"; text="${text%"${text##*[![:space:]]}"}"
+  [ -n "$text" ] || fail 2 "usage: stag-ctl task add TEXT"
+  [ "${#text}" -le 500 ] || text="${text:0:500}"
+  base="$(stag_service_url tasks)" || fail 3 "no 'tasks' entry in $(stag_services_file)"
+  need curl
+  out="$(printf '{"type":"task","title":"%s"}' "$(stag_json_esc "$text")" | curl -sS --max-time 10 -X POST \
+    -H 'Content-Type: application/json' -H 'Accept: application/json' -H 'X-Stag-Request: 1' \
+    --data-binary @- -w '\n%{http_code}' "${base%/}/api/items" 2>/dev/null)" || fail 1 "stag-tasks unreachable"
+  code="${out##*$'\n'}"; body="${out%$'\n'*}"
+  if [ "$code" != 201 ] && [ "$code" != 200 ]; then
+    [[ "$body" =~ $ere ]] && fail 1 "stag-tasks: HTTP $code ${BASH_REMATCH[2]}"
+    fail 1 "stag-tasks: HTTP $code"
+  fi
+  # the Item object starts with its own "id" (nested tags come after it)
+  [[ "$body" =~ $re ]] || fail 1 "stag-tasks: no id in the answer"
+  id="${BASH_REMATCH[1]}"
+  printf '{"created":true,"id":%s,"title":"%s"}\n' "$id" "$(stag_json_esc "$text")"
+}
+
 # ---- about this computer ----
 cmd_about() {
   local host kern up d h m model="" k v _u mt=0 ma=0 b health="" cyc="" cap="" bst="" full design dt du
@@ -433,9 +459,10 @@ case "$what" in
   stagbot) cmd_stagbot "$@" ;;
   apps) cmd_apps ;;
   app) cmd_app "$@" ;;
+  task) cmd_task "$@" ;;
   about) cmd_about ;;
   session) cmd_session "$@" ;;
   control) cmd_control ;;
-  -h|--help|help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h|--help|help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   *) usage ;;
 esac

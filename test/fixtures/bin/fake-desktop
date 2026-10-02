@@ -96,9 +96,14 @@ case "$name" in
     grep -vF "$KG|$KK=" "$KP" > "$KP.tmp"; mv "$KP.tmp" "$KP"
     [ "$KDEL" = 1 ] || echo "$KG|$KK=$KV" >> "$KP" ;;
   curl)
+    # curl.codes: "URL CODE" lines (000 = unreachable, exit 7). Without -o, curl.body (if any) is the body.
+    # --data-binary @- saves stdin to curl.stdin.
     url="${*: -1}"; [ -n "${FAKE_CURL_SLEEP:-}" ] && sleep "$FAKE_CURL_SLEEP"
+    case " $* " in *" --data-binary @- "*) cat > "$FAKE_DIR/curl.stdin" ;; esac
     code="$(awk -v u="$url" '$1 == u {print $2}' "$FAKE_DIR/curl.codes" 2>/dev/null)"
-    printf '%s' "${code:-200}"; [ "${code:-200}" = 000 ] && exit 7 ;;
+    if [ "${code:-200}" = 000 ]; then printf 000; exit 7; fi
+    case " $* " in *" -o "*) ;; *) [ -f "$FAKE_DIR/curl.body" ] && cat "$FAKE_DIR/curl.body" ;; esac
+    case " $* " in *'%{http_code}'*) [[ "$*" == *'\n%{http_code}'* ]] && printf '\n'; printf '%s' "${code:-200}" ;; esac ;;
   tailscale)
     case "$1" in status) [ "$(st ts up)" = up ] ;; ip) echo 100.64.0.7 ;; esac ;;
   gpspipe)
