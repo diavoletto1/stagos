@@ -67,11 +67,13 @@ lc_user_files() {
   return 0
 }
 
-# lc_bins: labwc-era helpers still in /usr/local/bin (only StagOS copies: "StagOS" in the header)
+# lc_bins: labwc-era helpers still in /usr/local/bin (only StagOS copies: "StagOS" in the header). A name
+# the current tree ships again (stag-battery: TLP charge thresholds, module power) is kept when it is that copy.
 lc_bins() {
   local b f
   for b in "${STAGOS_LABWC_BINS[@]}"; do
     f="${STAGOS_LOCAL_BIN:-/usr/local/bin}/$b"
+    [[ -f "$HERE/desktop/bin/$b.sh" ]] && cmp -s "$f" "$HERE/desktop/bin/$b.sh" && continue
     [[ -f "$f" ]] && head -5 "$f" | grep -q 'StagOS' && echo "$f"
   done
   return 0
