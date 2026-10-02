@@ -37,6 +37,8 @@ echo 'name=StagOS' > "$D/themes/StagOS/openbox-3/themerc"
 echo '[bar]' > "$C/stagos/desktop.conf"; echo '[main]' > "$C/foot/foot.ini"
 printf '#!/bin/bash\n# StagOS dock\n' > "$STAGOS_LOCAL_BIN/stag-dock"; printf '#!/bin/bash\n# StagOS menu\n' > "$STAGOS_LOCAL_BIN/stag-menu"
 printf '#!/bin/bash\n# not ours\n' > "$STAGOS_LOCAL_BIN/stag-power"; printf '#!/bin/bash\n# StagOS kismet\n' > "$STAGOS_LOCAL_BIN/stag-kismet"
+# stag-battery: the current tree ships that name again (module power); its own copy must survive the cleanup
+cp "$ROOT/desktop/bin/stag-battery.sh" "$STAGOS_LOCAL_BIN/stag-battery"
 cp "$ROOT/test/fixtures/labwc-era/zprofile-p1" "$HOME/.zprofile"
 # the labwc-era stag-session (its fallback is `exec labwc`)
 printf '#!/bin/bash\n# StagOS: pick and start the graphical session\nexec labwc\n' > "$STAGOS_LOCAL_BIN/stag-session"
@@ -79,6 +81,7 @@ check "originals are gone" bash -c "! ls -d '$C/labwc' '$C/waybar' '$C/qt6ct' '$
 check "empty drop-in and theme dirs removed, others kept" bash -c "test ! -e '$C/systemd/user/waybar.service.d' && test ! -e '$D/themes/StagOS' && test -s '$C/systemd/user/pipewire.service.d/mine.conf'"
 check "kept: own autostart entries, StagOS Plasma files, foot, desktop.conf" bash -c "test -s '$C/autostart/mine.desktop' && test -s '$C/autostart/stag-plasma-apply.desktop' && test -s '$C/foot/foot.ini' && test -s '$C/stagos/desktop.conf'"
 check "kept: helpers that are not StagOS copies, and the recon helpers" bash -c "test -s '$STAGOS_LOCAL_BIN/stag-power' && test -s '$STAGOS_LOCAL_BIN/stag-kismet'"
+check "kept: the current stag-battery (module power), not stashed" cmp "$ROOT/desktop/bin/stag-battery.sh" "$STAGOS_LOCAL_BIN/stag-battery"
 check "pacman -Rns got exactly the removable labwc-era packages" bash -c "grep -qx 'pacman -Rns --noconfirm labwc waybar fuzzel mako swaync qt6ct blueman network-manager-applet' '$FAKE_LOG'"
 check "the listing shows what -s takes along" grep -q 'also takes their unneeded dependencies: libfoo-unneeded)' "$T/run1.log"
 check "a cascade package StagOS installs itself (gpsd) is marked explicit before -Rns, nothing else" \

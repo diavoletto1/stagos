@@ -184,18 +184,32 @@ vol() {
   else emit vol core "VOL $v" ok "volume ${v}%"; fi
 }
 bat() {
-  local b cap st pw tip
+  local b cap st pw tip note
   for b in "$STAG_SYS"/class/power_supply/BAT*; do
     cap="$(stag_read "$b/capacity")" || continue
     st="$(stag_read "$b/status")"
     tip="battery ${cap}%  ${st,,}"
     pw="$(stag_read "$b/power_now")" && [[ "$pw" =~ ^[0-9]+$ ]] && [ "$pw" -gt 0 ] && tip+="  $((pw / 1000000)).$(( pw / 100000 % 10 )) W"
+    # optimized charging (stag-charge, root): one line such as "charging on hold at 80%, full by 07:15"
+    note="$(stag_read "${STAGOS_CHARGE_NOTE:-/run/stagos/charge-note}")" && tip+="  ·  $note"
     case "$st" in
       Charging|Full|"Not charging") emit bat core "BAT ${cap}+" ok "$tip" ;;
       *) emit bat core "BAT $cap" "$([ "$cap" -le 15 ] && echo hot || echo ok)" "$tip" ;;
     esac
     return
   done
+}
+# backup age from stag-backup's state file (off by default: [bar] bak=true)
+bak() {
+  local f="${XDG_STATE_HOME:-$HOME/.local/state}/stagos/backup.state" k v ok="" rc="" age
+  [ -r "$f" ] || { emit bak core "BAK --" off "no backup yet (stag-backup now)"; return; }
+  while IFS='=' read -r k v; do case "$k" in last_ok) ok="$v" ;; last_rc) rc="$v" ;; esac; done < "$f"
+  [[ "$ok" =~ ^[0-9]+$ ]] || { emit bak core "BAK --" hot "no good backup yet (stag-backup status)"; return; }
+  age=$(( $(stag_now) - ok ))
+  if [ "$age" -ge 86400 ]; then v="$((age / 86400))d"; else v="$((age / 3600))h"; fi
+  if [ "$rc" != 0 ]; then emit bak core "BAK $v" hot "last backup run failed; last good one ${v} ago (stag-backup status)"
+  elif [ "$age" -ge $((3 * 86400)) ]; then emit bak core "BAK $v" hot "last backup ${v} ago"
+  else emit bak core "BAK $v" ok "last backup ${v} ago"; fi
 }
 clock() {
   # the plasmoid formats the clock itself (Qt format from [bar] clock_format); this is the fallback text
@@ -210,6 +224,7 @@ on stagbot && stagbot
 on net && net
 on bt && bt
 on vol && vol
+stag_conf_bool bar bak false && bak
 on bat && bat
 on clock && clock
 

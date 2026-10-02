@@ -1,0 +1,11 @@
+# StagOS optimized battery charging: a step every 5 minutes (catches a missed udev event, starts top-offs).
+[Unit]
+Description=StagOS optimized battery charging, every 5 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

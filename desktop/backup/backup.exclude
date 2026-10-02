@@ -1,0 +1,38 @@
+# StagOS restic excludes (installed to ~/.config/stagos/backup.exclude by `stagos-desktop snapshots`).
+# One restic pattern per line; restic expands $HOME. Patterns without a "/" match a name anywhere.
+# Directories holding a CACHEDIR.TAG are skipped too (--exclude-caches).
+$HOME/.cache
+$HOME/.local/share/Trash
+$HOME/.thumbnails
+# games and big runtimes that reinstall themselves
+$HOME/.local/share/Steam
+$HOME/.steam
+$HOME/.local/share/flatpak
+$HOME/.var/app/*/cache
+$HOME/.local/share/containers
+# browser caches (profiles, bookmarks and passwords are kept)
+$HOME/.config/chromium/*/Cache
+$HOME/.config/chromium/*/Code Cache
+$HOME/.config/chromium/*/GPUCache
+$HOME/.config/chromium/*/Service Worker/CacheStorage
+$HOME/.config/chromium/*/Service Worker/ScriptCache
+$HOME/.config/chromium/GrShaderCache
+$HOME/.config/chromium/ShaderCache
+$HOME/.mozilla/firefox/*/cache2
+$HOME/.config/Code/Cache*
+$HOME/.config/Code/CachedData
+$HOME/.config/obsidian/Cache
+$HOME/.config/obsidian/Code Cache
+# language toolchains and build output that a package manager restores
+node_modules
+.venv
+__pycache__
+$HOME/.npm/_cacache
+$HOME/.cargo/registry
+$HOME/.cargo/git
+$HOME/.rustup
+$HOME/go/pkg/mod
+$HOME/.local/share/uv
+# desktop indexes
+$HOME/.local/share/baloo
+$HOME/.local/state/stagos/backup.lock

@@ -8,11 +8,19 @@ STAGOS_STAG_HOST="CHANGEME.invalid"   # e.g. the tailnet name of the box that se
 STAGOS_STAG_SCHEME="https"
 STAGOS_STAG_PATHS=(tasks maps control lab media fitness)   # /tasks/ /maps/ /control/ /lab/ /media/ /fitness/
 
-# ---- backups (module: snapshots, only used when root is not btrfs) ----
-# restic repository, any backend restic supports: sftp:USER@HOST:/path, rest:https://HOST/path, s3:...
+# ---- backups (module: snapshots, only used when root is not btrfs; command: stag-backup) ----
+# restic repository, any backend restic supports. StagOS default: SFTP to the home server over Tailscale SSH,
+# e.g. sftp:SERVER:/path/to/restic/LAPTOP (SERVER = the ssh name that works as `ssh SERVER` with no prompt)
 STAGOS_RESTIC_REPO=""
-# file holding the repo password (chmod 600, outside this repo)
+# file holding the repo password (chmod 600, outside this repo); `stagos-desktop snapshots` creates a random one
+# once if missing. Copy it to a password manager: without it the backups cannot be restored.
 STAGOS_RESTIC_PASSWORD_FILE="$HOME/.config/stagos/restic.pass"
-# what to back up (space separated) and how often (systemd OnCalendar)
-STAGOS_RESTIC_PATHS="$HOME"
-STAGOS_RESTIC_SCHEDULE="daily"
+# what to back up (space separated; excludes: desktop/backup/backup.exclude)
+STAGOS_RESTIC_PATHS="$HOME /etc"
+# timer attempts (systemd OnCalendar); a backup is made at most once per STAGOS_BACKUP_EVERY_H hours,
+# only on AC power and when the server answers
+STAGOS_RESTIC_SCHEDULE="hourly"
+STAGOS_BACKUP_EVERY_H=20
+# optional: ntfy topic URL pinged when a backup fails, plus a 600 file holding an access token (empty = none)
+STAGOS_BACKUP_NTFY_URL=""
+STAGOS_BACKUP_NTFY_TOKEN_FILE=""

@@ -1,0 +1,24 @@
+#!/bin/bash
+# fixture: fake restic for stag-backup / stag-update tests. Logs "restic args" (plus RESTIC_REPOSITORY and
+# whether RESTIC_PASSWORD_FILE is readable) to $FAKE_LOG. Knobs in $FAKE_DIR:
+#   restic.<sub>.rc     exit code for that subcommand (cat, init, backup, forget, check, prune, restore)
+#   restic.repo         present = the repo exists; absent = `cat config` exits 10 (no repository), init creates it
+# backup prints restic's --json summary line; restore --target DIR --include F... writes each F under DIR.
+echo "restic $* repo=$RESTIC_REPOSITORY pass=$([ -r "${RESTIC_PASSWORD_FILE:-/nonexistent}" ] && echo yes || echo no)" >> "${FAKE_LOG:?}"
+d="${FAKE_DIR:?}"; sub="$1"
+rcf="$d/restic.$sub.rc"
+if [ -f "$rcf" ]; then rc="$(cat "$rcf")"; else rc=0; fi
+case "$sub" in
+  cat) [ -e "$d/restic.repo" ] || exit 10 ;;
+  init) [ "$rc" = 0 ] && touch "$d/restic.repo" ;;
+  backup)
+    echo '{"message_type":"status","percent_done":0.5}'
+    echo '{"message_type":"summary","files_new":3,"snapshot_id":"0123abcd4567ef89"}' ;;
+  restore)
+    shift; t=""; inc=()
+    while [ $# -gt 0 ]; do
+      case "$1" in --target) t="$2"; shift ;; --include) inc+=("$2"); shift ;; esac; shift
+    done
+    if [ "$rc" = 0 ]; then for f in "${inc[@]}"; do mkdir -p "$t$(dirname "$f")"; echo restored > "$t$f"; done; fi ;;
+esac
+exit "$rc"

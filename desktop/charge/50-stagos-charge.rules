@@ -1,0 +1,12 @@
+// StagOS battery overrides: a local, active member of wheel may START the two override units
+// (stag-battery full / stag-battery hold) without a password. No other unit, no other verb.
+polkit.addRule(function (action, subject) {
+  if (action.id !== "org.freedesktop.systemd1.manage-units") return polkit.Result.NOT_HANDLED;
+  if (!subject.local || !subject.active || !subject.isInGroup("wheel")) return polkit.Result.NOT_HANDLED;
+  var unit = action.lookup("unit");
+  if (action.lookup("verb") === "start" &&
+      (unit === "stagos-charge-full.service" || unit === "stagos-charge-hold.service")) {
+    return polkit.Result.YES;
+  }
+  return polkit.Result.NOT_HANDLED;
+});
