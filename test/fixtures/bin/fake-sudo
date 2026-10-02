@@ -1,0 +1,5 @@
+#!/bin/bash
+# fixture: fake sudo. Logs "sudo args" to $FAKE_LOG and runs the command as the current user (tests point
+# STAGOS_MIRRORLIST and friends at temp files, so nothing outside the sandbox is touched).
+echo "sudo $*" >> "${FAKE_LOG:?}"
+exec "$@"
