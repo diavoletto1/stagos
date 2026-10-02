@@ -28,6 +28,8 @@ net=true
 bt=true
 # vol: volume
 vol=true
+# bak: age of the last restic backup (stag-backup)
+bak=false
 # bat: battery
 bat=true
 # clock: date and time

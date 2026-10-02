@@ -60,6 +60,19 @@ echo 9 > "$STAGOS_SYS/class/power_supply/BAT0/capacity"
 jcheck "status: low battery is hot" "$(stag-status --json)" '(.fields[] | select(.id=="bat") | .state) == "hot"'
 echo Charging > "$STAGOS_SYS/class/power_supply/BAT0/status"
 jcheck "status: charging shows +" "$(stag-status --json)" '(.fields[] | select(.id=="bat") | .text) == "BAT 9+"'
+# BAK: off unless [bar] bak=true; age and state from stag-backup's backup.state
+jcheck "status: bak is off by default" "$(stag-status --json)" '[.fields[].id] | index("bak") == null'
+printf '[bar]\nbak=true\n' > "$HOME/.config/stagos/desktop.conf"
+jcheck "status: bak on, no backup yet" "$(stag-status --json)" '(.fields[] | select(.id=="bak") | (.text == "BAK --" and .state == "off"))'
+jcheck "status: bak sits before bat" "$(stag-status --json)" '[.fields[].id] | (index("bak") + 1 == index("bat"))'
+mkdir -p "$HOME/.local/state/stagos"; BS="$HOME/.local/state/stagos/backup.state"
+printf 'last_ok=%s\nlast_rc=0\n' "$(( $(date +%s) - 5 * 3600 ))" > "$BS"
+jcheck "status: bak 5h ok" "$(stag-status --json)" '(.fields[] | select(.id=="bak") | (.text == "BAK 5h" and .state == "ok"))'
+printf 'last_ok=%s\nlast_rc=0\n' "$(( $(date +%s) - 4 * 86400 ))" > "$BS"
+jcheck "status: bak older than 3 days is hot" "$(stag-status --json)" '(.fields[] | select(.id=="bak") | (.text == "BAK 4d" and .state == "hot"))'
+printf 'last_ok=%s\nlast_rc=1\n' "$(( $(date +%s) - 3600 ))" > "$BS"
+jcheck "status: bak hot after a failed run" "$(stag-status --json)" '(.fields[] | select(.id=="bak") | .state == "hot" and (.tooltip|test("failed")))'
+rm -f "$HOME/.config/stagos/desktop.conf" "$BS"
 echo down > "$STAGOS_SYS/class/net/wlan0/operstate"; echo 1 > "$STAGOS_SYS/class/rfkill/rfkill0/soft"
 jcheck "status: wifi radio off" "$(stag-status --json)" '(.fields[] | select(.id=="net") | .text) == "WIFI off"'
 fake_sys_iface enp0s25 1
