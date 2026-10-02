@@ -54,7 +54,12 @@ stagos_dm_snapshots() {
 # stagos_dm_restic_pass FILE: a random repo password, created once (0600). Never printed: Jack copies it himself.
 stagos_dm_restic_pass() {
   local f="$1"
-  [[ -s "$f" ]] && return 0
+  if [[ -s "$f" ]]; then
+    if ! dm_dry && [[ ! -L "$f" && "$(stat -c %a "$f")" != 600 ]]; then
+      chmod 600 "$f"; DM_CHANGED=$((DM_CHANGED + 1)); log "chmod 600 $f"
+    fi
+    return 0
+  fi
   if dm_dry; then log "[dry] would create the restic password file $f (600, random)"; return 0; fi
   mkdir -p "$(dirname "$f")"
   ( umask 077; head -c 33 /dev/urandom | base64 | tr -d '\n' > "$f" )
