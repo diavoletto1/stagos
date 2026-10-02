@@ -429,6 +429,7 @@ which waybar pulled in too) is marked explicitly installed first, so it stays. R
 STAG_MAPS_DIR=~/repos/stag-maps ./test/field-maps-contract.sh   # stag-field sync vs the real stag-maps app (temp DB, fake whois): upload, duplicate, status, errors, non-owner 403
 ./test/link.sh                               # modules link + lab: stag-ctl task add (fake curl), notifier vs a fake ntfy, KRunner runner (+ private D-Bus), nft -c
 ./test/desktop-container.sh all              # rootless podman Arch: shellcheck, dry run, real run, 2nd run must change 0 files, per-module reruns, config validation, btrfs branch
+./test/dryrun-container.sh                   # DRY_RUN=1 ./stagos-desktop (every module) on a clean Arch container changes no file and installs nothing
 ./test/update-pin-container.sh               # stag-update archive pin for real in podman (network): --pin, install from the archive, --to, failed and Ctrl-C --to restore the old pin, --unpin byte for byte
 ./test/desktop-container.sh harden           # modules network, firewall, boot: run 1, run 2 = 0 changes, nft ruleset checked + loaded in the container's netns, NM config, Plymouth theme
 ./test/firewall-netns.sh                     # the ruleset's behaviour in a throwaway user+net namespace (veth peer; skips without unprivileged userns)
