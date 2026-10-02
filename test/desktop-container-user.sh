@@ -302,6 +302,19 @@ if [[ "$phase" == fresh ]]; then
   ./stagos-desktop > /tmp/run2.log 2>&1; t "stagos-desktop run 2 exits 0" test $? -eq 0
   grep -a 'wrote ' /tmp/run2.log | sed 's/\x1b\[[0-9;]*m//g' | head -20
   t "stagos-desktop run 2 changed 0 files" grep -q 'files changed this run: 0$' /tmp/run2.log
+  sec "fresh: field mode (module field)"
+  t "/usr/local/bin/stag-field" test -x /usr/local/bin/stag-field
+  t "stag-field status parses, inactive on a fresh box" bash -c "stag-field status | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"active\"] is False'"
+  for f in systemd/user/stagos-field-sync.service systemd/user/stagos-field-sync.timer; do t "config/$f" test -s "$HOME/.config/$f"; done
+  t "field-sync units: sections and keys" python3 - "$HOME/.config/systemd/user" <<'PY'
+import configparser, sys
+def load(f):
+    c = configparser.ConfigParser(interpolation=None, strict=False); c.optionxform = str
+    c.read(sys.argv[1] + "/" + f); return c
+s, tm = load("stagos-field-sync.service"), load("stagos-field-sync.timer")
+assert s["Service"]["Type"] == "oneshot" and s["Service"]["ExecStart"] == "/usr/local/bin/stag-field sync"
+assert tm["Install"]["WantedBy"] == "timers.target" and "OnUnitActiveSec" in tm["Timer"]
+PY
   sec "fresh: nothing labwc-era installed or left"
   for p in "${STAGOS_LABWC_PKGS[@]}"; do t "not installed: $p" bash -c "! pacman -Q $p"; done
   t "no old helpers in /usr/local/bin" bash -c "! ls ${STAGOS_LABWC_BINS[*]/#//usr/local/bin/} 2>/dev/null | grep -q ."

@@ -20,6 +20,9 @@ Item {
     readonly property bool monOn: !!(r.capture && r.capture.mode === "monitor")
     readonly property bool cardPresent: !!(r.capture && (r.capture.mode === "monitor" || r.capture.mode === "managed"))
     readonly property bool kismetOn: !!(r.kismet && r.kismet.running)
+    readonly property var field: r.field || ({})
+    readonly property bool fieldOn: !!field.active
+    readonly property var fieldRemote: field.remote || null
 
     Layout.preferredWidth: 360
     Layout.minimumWidth: 360
@@ -252,9 +255,43 @@ Item {
                     text: cc.monOn ? "Monitor: off" : cc.cardPresent ? "Monitor: on"
                         : (cc.r.capture && cc.r.capture.iface ? "Monitor: unplugged" : "Monitor: no card")
                     hot: cc.monOn
-                    enabled: cc.cardPresent
+                    enabled: cc.cardPresent && !cc.fieldOn
                     onClicked: cc.plasmoidRoot.act(cc.monOn ? "recon mon off" : "recon mon on", "recon")
                 }
+            }
+            // ---- field mode: one tile for the whole wardriving session ----
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                StatusText {
+                    Layout.fillWidth: true
+                    label: "FIELD"
+                    value: cc.fieldOn ? ((cc.field.iface || "") + " capturing") : "off"
+                    hot: cc.fieldOn
+                }
+                HudButton {
+                    // opens a terminal (stag-field needs sudo), like the Monitor and MON tiles
+                    text: cc.fieldOn ? "Field: off" : cc.cardPresent ? "Field: on"
+                        : (cc.r.capture && cc.r.capture.iface ? "Field: unplugged" : "Field: no card")
+                    hot: cc.fieldOn
+                    enabled: cc.fieldOn || cc.cardPresent
+                    onClicked: cc.plasmoidRoot.act(cc.fieldOn ? "field off" : "field on", "recon")
+                }
+            }
+            PC3.Label {
+                Layout.fillWidth: true
+                visible: text !== ""
+                // last sync from GET /maps/api/field/status when stag-maps is reachable, else the local record
+                text: cc.fieldRemote && typeof cc.fieldRemote.files === "number"
+                    ? "stag-maps: " + cc.fieldRemote.files + " files, " + (cc.fieldRemote.devices || 0) + " devices"
+                        + (cc.fieldRemote.last_upload ? "  last " + cc.fieldRemote.last_upload : "")
+                    : (cc.field.last_upload ? "last sync " + cc.field.last_upload : "")
+                wrapMode: Text.WordWrap
+                font.family: Pal.ui
+                font.pixelSize: 11
+                color: Pal.dim
+                textFormat: Text.PlainText
             }
         }
 
