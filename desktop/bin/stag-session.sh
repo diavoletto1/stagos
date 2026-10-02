@@ -92,7 +92,8 @@ start() {
 
 on_tty1() { [ -z "${WAYLAND_DISPLAY:-}" ] && [ "$(tty 2>/dev/null)" = /dev/tty1 ]; }
 
-mkdir -p "$CACHE"
+# --status only reads (stagos-desktop calls it, also under DRY_RUN): no cache dir for it
+case "${1:-}" in --status|status) ;; *) mkdir -p "$CACHE" ;; esac
 case "${1:-}" in
   start) start; exit ;;
   retry)

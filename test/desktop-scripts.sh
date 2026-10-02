@@ -45,6 +45,7 @@ FAILS_F() { echo "$HOME/.cache/stagos/session-plasma-fails"; }
 session_sandbox 1
 check "session: next is plasma on a fresh HOME" bash -c "stag-session --status | grep -qx 'next=plasma'"
 check "session: --status on a fresh HOME prints nothing on stderr (no missing fails file error)" bash -c "test -z \"\$(stag-session --status 2>&1 >/dev/null)\""
+check "session: --status on a fresh HOME creates no cache dir (it only reads; stagos-desktop calls it under DRY_RUN too)" bash -c "test ! -e \"\${XDG_CACHE_HOME:-\$HOME/.cache}/stagos\""
 STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1; rc=$?
 check "session: start runs startplasma through the dbus wrapper" bash -c "grep -q '^dbus-wrapper $T/sess/startplasma-wayland' '$FAKE_LOG' && grep -q '^startplasma-wayland' '$FAKE_LOG'"
 check "session: clean plasma exit returns 0, no shell (the tty1 login ends)" bash -c "test $rc = 0 && ! grep -q '^login-shell' '$FAKE_LOG'"
