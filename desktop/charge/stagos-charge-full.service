@@ -1,0 +1,16 @@
+# stag-battery full: charge to 100% now, until the next unplug. A local active wheel user may start it without a password
+# (/etc/polkit-1/rules.d/50-stagos-charge.rules); nothing else is allowed by that rule.
+[Unit]
+Description=StagOS battery: charge to 100% now, until the next unplug
+After=tlp.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/stag-charge full
+StateDirectory=stagos
+RuntimeDirectory=stagos
+RuntimeDirectoryPreserve=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes

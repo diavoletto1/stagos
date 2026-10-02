@@ -1,0 +1,3 @@
+# StagOS optimized battery charging: a step of stag-charge whenever AC is plugged in or pulled, so the
+# unplug time is recorded to the minute. After 85-tlp.rules on purpose: stag-charge has the last word.
+SUBSYSTEM=="power_supply", ACTION=="change", ATTR{type}=="Mains", RUN+="/usr/bin/systemctl --no-block start stagos-charge.service"

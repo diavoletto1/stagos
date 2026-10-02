@@ -184,12 +184,14 @@ vol() {
   else emit vol core "VOL $v" ok "volume ${v}%"; fi
 }
 bat() {
-  local b cap st pw tip
+  local b cap st pw tip note
   for b in "$STAG_SYS"/class/power_supply/BAT*; do
     cap="$(stag_read "$b/capacity")" || continue
     st="$(stag_read "$b/status")"
     tip="battery ${cap}%  ${st,,}"
     pw="$(stag_read "$b/power_now")" && [[ "$pw" =~ ^[0-9]+$ ]] && [ "$pw" -gt 0 ] && tip+="  $((pw / 1000000)).$(( pw / 100000 % 10 )) W"
+    # optimized charging (stag-charge, root): one line such as "charging on hold at 80%, full by 07:15"
+    note="$(stag_read "${STAGOS_CHARGE_NOTE:-/run/stagos/charge-note}")" && tip+="  ·  $note"
     case "$st" in
       Charging|Full|"Not charging") emit bat core "BAT ${cap}+" ok "$tip" ;;
       *) emit bat core "BAT $cap" "$([ "$cap" -le 15 ] && echo hot || echo ok)" "$tip" ;;
