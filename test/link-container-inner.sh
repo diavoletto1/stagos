@@ -13,6 +13,7 @@ STAGOS_STAG_PATHS=(tasks maps control)
 STAGOS_NTFY_USER="stagpad"
 STAGOS_LAB_SSH_PUBKEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKeyForTestsOnly000000000000000000000 staglab@test"
 STAGOS_LAB_SSH_FROM="100.64.0.1"
+STAGOS_LAB_SSH_PORT="2222"
 CONF
   chown -R jack:jack /home/jack/stagos
   exec su jack -c "bash /home/jack/stagos/test/link-container-inner.sh"
@@ -52,7 +53,9 @@ for f in systemd/user/stagos-ntfy.service systemd/user/stagos-krunner.service; d
 t "krunner plugin metadata" cmp desktop/link/stagos-krunner.desktop "$D/krunner/dbusplugins/stagos-krunner.desktop"
 t "dbus activation with the real HOME" grep -qx "Exec=/usr/bin/python3 $HOME/.local/lib/stagos/stag-krunner" "$D/dbus-1/services/org.stagos.krunner.service"
 t "icon + desktop entry" test -s "$D/icons/hicolor/scalable/apps/stag-ntfy.svg" -a -s "$D/applications/stag-ntfy.desktop"
-t "systemd unit syntax (systemd-analyze verify)" bash -c "! command -v systemd-analyze >/dev/null || systemd-analyze --user verify $C/systemd/user/stagos-ntfy.service $C/systemd/user/stagos-krunner.service 2>&1 | grep -v -e 'Failed to connect' -e 'XDG_RUNTIME_DIR' -e 'not executable' | grep -q . && exit 1 || exit 0"
+mkdir -p /tmp/xdg-jack; chmod 700 /tmp/xdg-jack
+t "systemd unit syntax (systemd-analyze --user verify)" env XDG_RUNTIME_DIR=/tmp/xdg-jack systemd-analyze --user verify \
+  "$C/systemd/user/stagos-ntfy.service" "$C/systemd/user/stagos-krunner.service"
 
 sec "KDE Connect firewall drop-in"
 t "/etc/nftables.d/kdeconnect.nft from the repo" cmp desktop/link/kdeconnect.nft /etc/nftables.d/kdeconnect.nft
@@ -64,7 +67,8 @@ t "sshd drop-in" grep -qx 'PasswordAuthentication no' /etc/ssh/sshd_config.d/50-
 t "Arch sshd_config includes sshd_config.d" grep -q '^Include /etc/ssh/sshd_config.d/\*\.conf' /etc/ssh/sshd_config
 sudo ssh-keygen -A >/dev/null 2>&1
 t "sshd -t accepts the config" sudo sshd -t
-t "effective sshd config: keys only, no root" bash -c "sudo sshd -T 2>/dev/null | grep -qx 'passwordauthentication no' && sudo sshd -T | grep -qx 'permitrootlogin no' && sudo sshd -T | grep -qx 'authenticationmethods publickey'"
+sudo sshd -T 2>&1 | tee /tmp/sshd-T >/dev/null
+t "effective sshd config: keys only, no root, no forwarding" bash -c "for l in 'passwordauthentication no' 'kbdinteractiveauthentication no' 'permitrootlogin no' 'authenticationmethods publickey' 'allowtcpforwarding no' 'port 2222'; do grep -qix \"\$l\" /tmp/sshd-T || { echo \"missing: \$l\"; exit 1; }; done"
 t "authorized_keys: one stagos-lab line limited to stagmini" bash -c "test \$(grep -c ' stagos-lab$' ~/.ssh/authorized_keys) = 1 && grep -q '^from=\"100.64.0.1\",no-agent-forwarding' ~/.ssh/authorized_keys && test \$(stat -c %a ~/.ssh/authorized_keys) = 600"
 
 sec "notifier + runner on the packaged python"

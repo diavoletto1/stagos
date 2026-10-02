@@ -119,6 +119,9 @@ check "STAGOS_LINK_KDECONNECT=0 skips KDE Connect" bash -c "! grep -q kdeconnect
 printf 'STAGOS_LAB_SSH_PUBKEY="ssh-ed25519 AAAA x"\nSTAGOS_LAB_SSH_FROM="any; rm -rf /"\n' > "$T/bad.conf"
 out="$(HOME="$H" DRY_RUN=1 STAGOS_LOCAL_CONF="$T/bad.conf" ./stagos-desktop lab 2>&1)"
 check "lab: a junk STAGOS_LAB_SSH_FROM is refused" bash -c "grep -q 'STAGOS_LAB_SSH_FROM must be' <<< \"\$1\" && ! grep -q sshd_config.d <<< \"\$1\"" _ "$out"
+printf 'STAGOS_LAB_SSH_PUBKEY="ssh-ed25519 AAAA x"\nSTAGOS_LAB_SSH_FROM="100.64.0.1"\nSTAGOS_LAB_SSH_PORT="022"\n' > "$T/bad.conf"
+out="$(HOME="$H" DRY_RUN=1 STAGOS_LOCAL_CONF="$T/bad.conf" ./stagos-desktop lab 2>&1)"
+check "lab: a junk STAGOS_LAB_SSH_PORT is refused" bash -c "grep -q 'STAGOS_LAB_SSH_PORT must be' <<< \"\$1\" && ! grep -q sshd_config.d <<< \"\$1\"" _ "$out"
 check "local.conf.example: ntfy and lab keys documented, no values" bash -c "grep -q '^STAGOS_NTFY_USER=' config/local.conf.example && grep -q '^STAGOS_LAB_SSH_PUBKEY=\"\"' config/local.conf.example"
 check "desktop.conf.default: [link] ntfy=true" python3 -c '
 import configparser,sys; c=configparser.ConfigParser(interpolation=None); c.read("desktop/plasma/desktop.conf.default"); sys.exit(c["link"]["ntfy"] != "true")'

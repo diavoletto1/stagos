@@ -274,12 +274,14 @@ shell and nothing else. Module `lab` sets up the stagpad side:
 - optionally `prometheus-node-exporter` on :9100 for the monitor tile (`STAGOS_LAB_METRICS=1`).
 
 The server side is Jack's (sudo on stagmini, stag-lab's `deploy/`):
-1. The `stag-pad` entry in `/etc/stag-lab/hosts.yaml`: the tailnet address, `user: jack`, no `shell: powershell`.
+1. The `stag-pad` entry in `/etc/stag-lab/hosts.yaml`: the tailnet address, `user: jack`, `port:` = `STAGOS_LAB_SSH_PORT`,
+   no `shell: powershell`.
 2. Pin the new host key into `/var/lib/stag-lab/known_hosts`. Its install script does this, or use `ssh-keyscan`; drop any old pin first.
 3. If metrics are on, move `stag-pad` to the Prometheus `node` job.
 
-If stagpad runs Tailscale SSH (`tailscale set --ssh`), tailscaled answers port 22 on the tailnet address instead of sshd.
-The terminal then follows the tailnet SSH policy, not `authorized_keys`.
+If stagpad runs Tailscale SSH (`tailscale set --ssh`), tailscaled answers port 22 on the tailnet address instead of
+sshd, and the module notes it. Then set `STAGOS_LAB_SSH_PORT=2222` and give the `stag-pad` entry `port: 2222` in
+hosts.yaml. stag-lab then reaches sshd and its own key, and Tailscale SSH keeps port 22.
 
 ### Moving off labwc
 

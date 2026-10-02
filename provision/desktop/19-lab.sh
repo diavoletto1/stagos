@@ -2,22 +2,29 @@
 # Lab: stagpad as a stag-lab node. stag-lab has no node agent: its web terminal is the server (stagmini,
 # user staglab) opening SSH to the node over the tailnet with its own key per host (paramiko, pinned host
 # key, an interactive login shell, nothing else). So the node side is only:
-#  - sshd, key only (no passwords, no root, no forwarding), via /etc/ssh/sshd_config.d/50-stagos-lab.conf
+#  - sshd, key only (no passwords, no root, no forwarding), via /etc/ssh/sshd_config.d/50-stagos-lab.conf,
+#    on STAGOS_LAB_SSH_PORT (default 22). With Tailscale SSH on (tailscale set --ssh), tailscaled answers port 22
+#    on the tailnet address itself, so sshd needs another port there (e.g. 2222, and port: 2222 in hosts.yaml)
 #  - stag-lab's public key for this host in ~/.ssh/authorized_keys, limited to stagmini's address
 #    (STAGOS_LAB_SSH_PUBKEY, STAGOS_LAB_SSH_FROM in config/local.conf; one managed line, marked stagos-lab)
 #  - optional metrics for the stag-lab monitor tile: prometheus-node-exporter (STAGOS_LAB_METRICS=1)
 # The server side (hosts.yaml entry, pinned host key, Prometheus target) is Jack's; see the README.
 # Without STAGOS_LAB_SSH_PUBKEY nothing is opened: no sshd is installed or enabled.
 stagos_dm_lab() {
-  local key="${STAGOS_LAB_SSH_PUBKEY:-}" from="${STAGOS_LAB_SSH_FROM:-}"
+  local key="${STAGOS_LAB_SSH_PUBKEY:-}" from="${STAGOS_LAB_SSH_FROM:-}" port="${STAGOS_LAB_SSH_PORT:-22}"
   if [[ -z "$key" ]]; then
     warn "lab: STAGOS_LAB_SSH_PUBKEY not set in config/local.conf: no sshd for the stag-lab terminal"
   elif ! [[ "$key" =~ ^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa)\ [A-Za-z0-9+/=]+(\ .*)?$ ]]; then
     warn "lab: STAGOS_LAB_SSH_PUBKEY is not an OpenSSH public key line: skipped"
   elif ! [[ "$from" =~ ^[0-9A-Fa-f.:/,]+$ ]]; then
     warn "lab: STAGOS_LAB_SSH_FROM must be stagmini's tailnet address(es) (comma separated, CIDR ok): skipped"
+  elif ! [[ "$port" =~ ^[1-9][0-9]{0,4}$ ]] || (( port > 65535 )); then
+    warn "lab: STAGOS_LAB_SSH_PORT must be a port number: skipped"
   else
-    stagos_lab_sshd
+    if [[ "$port" == 22 ]] && have tailscale && tailscale debug prefs 2>/dev/null | grep -q '"RunSSH": *true'; then
+      dm_note "lab: Tailscale SSH is on, so tailscaled (not sshd) answers port 22 on the tailnet: set STAGOS_LAB_SSH_PORT=2222 and port: 2222 for stag-pad in stag-lab's hosts.yaml"
+    fi
+    stagos_lab_sshd "$port"
     stagos_lab_authorized_key "$key" "$from"
   fi
   if [[ "${STAGOS_LAB_METRICS:-0}" == 1 ]]; then
@@ -30,9 +37,10 @@ stagos_dm_lab() {
 stagos_lab_sshd() {
   dm_pkgs openssh
   local before="$DM_CHANGED"
-  dm_write /etc/ssh/sshd_config.d/50-stagos-lab.conf 644 sudo <<'CONF'
+  dm_write /etc/ssh/sshd_config.d/50-stagos-lab.conf 644 sudo <<CONF
 # StagOS (module lab): sshd for the stag-lab web terminal. Keys only, no root, no forwarding.
 # Reached over the tailnet; the authorized_keys line itself is limited to stagmini (from=...).
+Port $1
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
