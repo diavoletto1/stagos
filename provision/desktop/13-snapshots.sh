@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Snapshots. Detects the root filesystem:
 #   btrfs      -> snapper + snap-pac (snapshot before/after every pacman transaction), + grub-btrfs on GRUB
-#   otherwise  -> restic to STAGOS_RESTIC_REPO (config/local.conf) driven by a systemd user timer
+#   otherwise  -> restic to STAGOS_RESTIC_REPO (config/local.conf): stag-backup + the stagos-restic.timer user timer
+#                 ($HOME and /etc, package lists, retention 7 daily / 4 weekly / 6 monthly, weekly check + prune)
 stagos_dm_snapshots() {
   local fs; fs="$(dm_root_fstype)"
   log "root filesystem: $fs"
@@ -19,28 +20,58 @@ stagos_dm_snapshots() {
     return 0
   fi
 
-  dm_pkgs restic
-  dm_bins stagos-backup
-  local repo="${STAGOS_RESTIC_REPO:-}"
+  dm_pkgs restic openssh
+  dm_bins stag-backup
+  stagos_dm_backup_legacy
+  local repo="${STAGOS_RESTIC_REPO:-}" pass="${STAGOS_RESTIC_PASSWORD_FILE:-$HOME/.config/stagos/restic.pass}"
   if [[ -z "$repo" ]]; then
     warn "root is $fs (not btrfs) and STAGOS_RESTIC_REPO is unset in config/local.conf: restic installed, timer not enabled"
     return 0
   fi
-  # %q keeps repo URLs with $ " ` or spaces (rest:https://user:pa$$@host) intact when backup.env is sourced
-  {
+  # %q keeps repo URLs with $ " ` or spaces (rest:https://user:pa$$@host) intact when backup.env is sourced.
+  # dm_write reads a process substitution, not a pipe: in a pipeline it would run in a subshell and its
+  # DM_CHANGED count would be lost
+  dm_write "$(dm_cfg)/stagos/backup.env" 600 < <({
     printf 'STAGOS_RESTIC_REPO=%q\n' "$repo"
-    printf 'STAGOS_RESTIC_PASSWORD_FILE=%q\n' "${STAGOS_RESTIC_PASSWORD_FILE:-$HOME/.config/stagos/restic.pass}"
-    printf 'STAGOS_RESTIC_PATHS=%q\n' "${STAGOS_RESTIC_PATHS:-$HOME}"
-  } | dm_write "$(dm_cfg)/stagos/backup.env" 600
-  # the backup script is a user command; the units run it from ~/.local/bin
-  dm_install "$HERE/desktop/bin/stagos-backup.sh" "$HOME/.local/bin/stagos-backup" 755
+    printf 'STAGOS_RESTIC_PASSWORD_FILE=%q\n' "$pass"
+    printf 'STAGOS_RESTIC_PATHS=%q\n' "${STAGOS_RESTIC_PATHS:-$HOME /etc}"
+    printf 'STAGOS_BACKUP_EVERY_H=%q\n' "${STAGOS_BACKUP_EVERY_H:-20}"
+    printf 'STAGOS_RESTIC_CHECK_SUBSET=%q\n' "${STAGOS_RESTIC_CHECK_SUBSET:-5%}"
+    # ntfy ping on failure: only when local.conf names a topic URL (and optionally a 600 token file)
+    printf 'STAGOS_NTFY_URL=%q\n' "${STAGOS_BACKUP_NTFY_URL:-}"
+    printf 'STAGOS_NTFY_TOKEN_FILE=%q\n' "${STAGOS_BACKUP_NTFY_TOKEN_FILE:-}"
+  })
+  dm_install "$HERE/desktop/backup/backup.exclude" "$(dm_cfg)/stagos/backup.exclude" 644
   dm_install "$HERE/desktop/systemd/stagos-restic.service" "$(dm_cfg)/systemd/user/stagos-restic.service" 644
-  local sched="${STAGOS_RESTIC_SCHEDULE:-daily}"
-  sed "s|@SCHEDULE@|$sched|" "$HERE/desktop/systemd/stagos-restic.timer" | dm_write "$(dm_cfg)/systemd/user/stagos-restic.timer" 644
-  if [[ ! -f "${STAGOS_RESTIC_PASSWORD_FILE:-$HOME/.config/stagos/restic.pass}" ]]; then
-    warn "create the restic password file (chmod 600): ${STAGOS_RESTIC_PASSWORD_FILE:-$HOME/.config/stagos/restic.pass}"
-  fi
+  local sched="${STAGOS_RESTIC_SCHEDULE:-hourly}"
+  dm_write "$(dm_cfg)/systemd/user/stagos-restic.timer" 644 < <(sed "s|@SCHEDULE@|$sched|" "$HERE/desktop/systemd/stagos-restic.timer")
+  stagos_dm_restic_pass "$pass"
   dm_enable_user stagos-restic.timer
-  dm_note "snapshots: systemctl --user start stagos-restic.service once, then check 'restic snapshots'"
-  ok "restic backups scheduled ($sched)"
+  dm_note "backups: stag-backup now (first run initialises the repo), then stag-backup restore-test and stag-backup status"
+  ok "restic backups scheduled ($sched attempts, one good backup per ${STAGOS_BACKUP_EVERY_H:-20} h)"
+}
+
+# stagos_dm_restic_pass FILE: a random repo password, created once (0600). Never printed: Jack copies it himself.
+stagos_dm_restic_pass() {
+  local f="$1"
+  [[ -s "$f" ]] && return 0
+  if dm_dry; then log "[dry] would create the restic password file $f (600, random)"; return 0; fi
+  mkdir -p "$(dirname "$f")"
+  ( umask 077; head -c 33 /dev/urandom | base64 | tr -d '\n' > "$f" )
+  chmod 600 "$f"
+  DM_CHANGED=$((DM_CHANGED + 1))
+  log "wrote $f"
+  warn "NEW restic password created in $f"
+  warn "COPY IT SOMEWHERE SAFE NOW (password manager): without it no backup can ever be restored"
+  dm_note "restic password: copy $f into your password manager (it is not printed anywhere)"
+}
+
+# the labwc-era names: stagos-backup in ~/.local/bin and /usr/local/bin (the unit runs stag-backup now)
+stagos_dm_backup_legacy() {
+  local f
+  for f in "$HOME/.local/bin/stagos-backup" /usr/local/bin/stagos-backup; do
+    [[ -e "$f" ]] || continue
+    if [[ "$f" == /usr/* ]]; then run sudo rm -f "$f"; else run rm -f "$f"; fi
+    dm_dry || DM_CHANGED=$((DM_CHANGED + 1))
+  done
 }

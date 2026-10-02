@@ -2,9 +2,11 @@
 Description=StagOS restic backup schedule
 
 [Timer]
+# every attempt is cheap: stag-backup run skips on battery, when the host is away and when the last good
+# backup is younger than STAGOS_BACKUP_EVERY_H (20 h), so an hourly timer means "daily, as soon as possible"
 OnCalendar=@SCHEDULE@
 Persistent=true
-RandomizedDelaySec=30min
+RandomizedDelaySec=10min
 
 [Install]
 WantedBy=timers.target

@@ -1,5 +1,5 @@
 [Unit]
-Description=StagOS restic backup
+Description=StagOS restic backup (stag-backup run: on AC power, host reachable, once a day)
 Wants=network-online.target
 After=network-online.target
 
@@ -7,4 +7,4 @@ After=network-online.target
 Type=oneshot
 Nice=15
 IOSchedulingClass=idle
-ExecStart=%h/.local/bin/stagos-backup
+ExecStart=/usr/local/bin/stag-backup run
