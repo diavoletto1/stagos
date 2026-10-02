@@ -16,3 +16,19 @@ STAGOS_RESTIC_PASSWORD_FILE="$HOME/.config/stagos/restic.pass"
 # what to back up (space separated) and how often (systemd OnCalendar)
 STAGOS_RESTIC_PATHS="$HOME"
 STAGOS_RESTIC_SCHEDULE="daily"
+
+# ---- stag-ntfy notifications (module: link) ----
+# The ntfy server (stag-system deploy/ntfy): its own Caddy site on the stag host, port 8443, tailnet only.
+# Empty host = STAGOS_STAG_HOST. The user is a read-only ntfy user for this laptop; its password or token
+# goes in ~/.config/stagos/ntfy.credentials (600, created empty by the module), never here.
+STAGOS_NTFY_HOST=""
+STAGOS_NTFY_PORT="8443"
+STAGOS_NTFY_USER="stagpad"
+STAGOS_NTFY_TOPICS="stag-alerts,stag-agents"
+
+# ---- stag-lab node (module: lab) ----
+# The stag-lab web terminal SSHes in from stagmini with its own key for this host. Paste that key's .pub line
+# (on stagmini: /var/lib/stag-lab/keys/<host>_ed25519.pub) and stagmini's tailnet address. Empty key = no sshd.
+STAGOS_LAB_SSH_PUBKEY=""
+STAGOS_LAB_SSH_FROM=""            # e.g. 100.x.y.z (comma separated, CIDR ok)
+STAGOS_LAB_METRICS=0              # 1 = prometheus-node-exporter on :9100 for the stag-lab monitor tile

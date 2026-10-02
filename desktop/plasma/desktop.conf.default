@@ -49,3 +49,8 @@ animation_factor=0.7
 [recon]
 # capture_iface: wireless interface used for capture (Kismet, stag-mon). Empty = automatic
 capture_iface=
+
+[link]
+# ntfy: stag-ntfy messages (stag-alerts, stag-agents) as notifications (stagos-ntfy.service, module link).
+# true | false, read live (an open connection notices at the next message or keepalive, within a minute)
+ntfy=true

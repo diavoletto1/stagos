@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Service
+Name=StagOS
+Comment=t <task> adds a stag-tasks task, ask <question> asks Stagbot, stag <app> opens a stag app
+Icon=stag-ntfy
+X-KDE-PluginInfo-Name=org.stagos.krunner
+X-KDE-PluginInfo-Author=StagOS
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-License=MIT
+X-KDE-PluginInfo-EnabledByDefault=true
+X-Plasma-API=DBus
+X-Plasma-API-Minimum-Version=2.0
+X-Plasma-DBusRunner-Service=org.stagos.krunner
+X-Plasma-DBusRunner-Path=/runner
+X-Plasma-Request-Actions-Once=true
+X-Plasma-Runner-Syntaxes=t :q:,ask :q:,stag :q:
+X-Plasma-Runner-Syntax-Descriptions=Adds :q: to stag-tasks,Asks Stagbot :q:,Opens the stag app :q:
