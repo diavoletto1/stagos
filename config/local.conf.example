@@ -41,3 +41,8 @@ STAGOS_LAB_SSH_PUBKEY=""
 STAGOS_LAB_SSH_FROM=""            # e.g. 100.x.y.z (comma separated, CIDR ok)
 STAGOS_LAB_SSH_PORT="22"          # 2222 when Tailscale SSH is on (it takes port 22 on the tailnet); match it in hosts.yaml
 STAGOS_LAB_METRICS=0              # 1 = prometheus-node-exporter on :9100 for the stag-lab monitor tile
+
+# ---- MAC privacy (module: network) ----
+# Saved wifi connections that keep the hardware MAC (router allowlist / DHCP reservation). Every other wifi network
+# gets its own random MAC. Space separated NetworkManager connection names (no spaces in a name; use stag-mac trust for those); see `stag-mac list`.
+STAGOS_TRUSTED_NETS=""
