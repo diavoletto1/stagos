@@ -5,7 +5,7 @@
 #   stag-settings --print-context      print the JSON the app reads (paths, apps, wireless interfaces, version)
 # Test hooks (passed through to the app): --selftest=ACTIONS  --shot=FILE  --context=FILE
 # Env: STAGOS_SETTINGS_DIR (QML dir), STAGOS_DESKTOP_CONF, STAGOS_SETTINGS_ROOT (git checkout for the
-# version, default /opt/stagos), STAGOS_PLASMA_DATA (desktop.conf.default), QML_BIN.
+# version, default /opt/stagos), STAGOS_PLASMA_DATA (desktop.conf.default), STAGOS_SESSION_BIN, QML_BIN.
 set -uo pipefail
 
 CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -18,6 +18,7 @@ CONF="${STAGOS_DESKTOP_CONF:-$CFG/stagos/desktop.conf}"
 DEFAULTS="${STAGOS_PLASMA_DATA:-$DATA/stagos/plasma}/desktop.conf.default"
 [ -f "$DEFAULTS" ] || DEFAULTS="$HERE/../desktop.conf.default"
 ROOT="${STAGOS_SETTINGS_ROOT:-/opt/stagos}"
+SESSION="${STAGOS_SESSION_BIN:-stag-session}"
 
 json() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/ /g'; }
 
@@ -62,10 +63,18 @@ context() {
     version="$(git -C "$ROOT" describe --tags --always --dirty 2>/dev/null || echo unknown)"
   fi
   [ -f "$readme" ] || readme="$ROOT/README.md (not installed)"
+  # tty1 session state (stag-session --status): the Session page shows the crash fallback and can clear it
+  local st next="plasma" fails=0
+  if st="$("$SESSION" --status 2>/dev/null)"; then
+    next="$(sed -n 's/^next=//p' <<< "$st")"; fails="$(sed -n 's/^fails=//p' <<< "$st")"
+  fi
+  [[ "$fails" =~ ^[0-9]+$ ]] || fails=0
   mkdir -p "$STATE" "$(dirname "$CONF")"
-  printf '{"conf":"%s","defaults":"%s","request":"%s","apps":[%s],"ifaces":[%s],"version":"%s","host":"%s","readme":"%s"}\n' \
+  printf '{"conf":"%s","defaults":"%s","request":"%s","apps":[%s],"ifaces":[%s],"version":"%s","host":"%s","readme":"%s",' \
     "$(json "$CONF")" "$(json "$DEFAULTS")" "$(json "$STATE/reset-layout.request")" "$(apps_json)" "$(ifaces_json)" \
     "$(json "$version")" "$(json "$(hostname 2>/dev/null || cat /etc/hostname 2>/dev/null)")" "$(json "$readme")"
+  printf '"session_next":"%s","session_fails":%s,"session_fails_file":"%s"}\n' \
+    "$(json "${next:-plasma}")" "$fails" "$(json "${XDG_CACHE_HOME:-$HOME/.cache}/stagos/session-plasma-fails")"
 }
 
 case "${1:-}" in

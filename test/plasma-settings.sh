@@ -17,6 +17,7 @@ export HOME="$T/home"; mkdir -p "$HOME"
 unset XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_DATA_DIRS
 export STAGOS_DESKTOP_CONF="$T/desktop.conf" STAGOS_PLASMA_DATA="$ROOT/desktop/plasma" STAGOS_SETTINGS_DIR="$ROOT/desktop/plasma/settings"
 export STAGOS_SETTINGS_ROOT="$T/noroot"
+export STAGOS_SESSION_BIN="$ROOT/desktop/bin/stag-session.sh"
 export XDG_STATE_HOME="$T/state"; mkdir -p "$XDG_STATE_HOME"
 export XDG_DATA_DIRS="$T/share"; mkdir -p "$T/share/applications"
 printf '[Desktop Entry]\nType=Application\nName=Foot\nIcon=foot\nExec=foot\n' > "$T/share/applications/foot.desktop"
@@ -34,6 +35,11 @@ assert "hidden.desktop" not in ids
 assert ids["quote.desktop"]["name"] == 'Quote "Me" \\ back', ids["quote.desktop"]
 assert d["conf"].endswith("desktop.conf") and d["request"].endswith("reset-layout.request") and d["defaults"].endswith("desktop.conf.default")
 PY
+check "context: session state from stag-session --status" python3 - "$("$S" --print-context)" <<'PY2'
+import json, sys
+d = json.loads(sys.argv[1])
+assert d["session_fails"] == 0 and d["session_next"] and d["session_fails_file"].endswith("/stagos/session-plasma-fails"), d
+PY2
 check "context: version unknown without a checkout" bash -c "grep -q '\"version\":\"unknown\"' <<< '$ctx'"
 mkdir -p "$T/noroot" && git -C "$T/noroot" init -q && git -C "$T/noroot" -c user.name=t -c user.email=t@t commit -q --allow-empty -m x
 check "context: version from git describe" bash -c "'$S' --print-context | grep -qE '\"version\":\"[0-9a-f]{7,}'"
@@ -45,7 +51,7 @@ c = configparser.ConfigParser(interpolation=None); c.read(sys.argv[1] + "/deskto
 for s in c.sections():
     for k in c[s]: print(f"{s}.{k}")
 PY
-want="session.default bar.stag_menu bar.appmenu bar.recon bar.stagbot bar.cpu bar.ram bar.temp bar.net bar.bt bar.vol bar.bat bar.clock bar.clock_format dock.launchers effects.blur effects.animation_factor recon.capture_iface"
+want="bar.stag_menu bar.appmenu bar.recon bar.stagbot bar.cpu bar.ram bar.temp bar.net bar.bt bar.vol bar.bat bar.clock bar.clock_format dock.launchers effects.blur effects.animation_factor recon.capture_iface"
 check "desktop.conf.default has exactly the contract keys, in order" test "$(tr '\n' ' ' < "$T/keys")" = "$want "
 check "every default key has a comment line right above it (or its group)" python3 - "$ROOT/desktop/plasma/desktop.conf.default" <<'PY'
 import sys
@@ -83,18 +89,16 @@ else
   # round trips, same code path as the UI
   rt() { ss --selftest="$1" | grep -q 'SELFTEST OK'; }
   get() { python3 -c "import configparser,sys; c=configparser.ConfigParser(interpolation=None); c.read(sys.argv[1]); print(c[sys.argv[2]][sys.argv[3]], end='')" "$STAGOS_DESKTOP_CONF" "$1" "$2"; }
-  rt "set:bar.cpu=false,set:effects.animation_factor=0.4,set:recon.capture_iface=wlan1,set:session.default=labwc,set:bar.clock_format=HH:mm"
+  rt "set:bar.cpu=false,set:effects.animation_factor=0.4,set:recon.capture_iface=wlan1,set:bar.clock_format=HH:mm"
   check "round trip: bar.cpu=false"            test "$(get bar cpu)" = false
   check "round trip: other bar items untouched" test "$(get bar ram)" = true
   check "round trip: animation_factor=0.4"     test "$(get effects animation_factor)" = 0.4
   check "round trip: recon.capture_iface"      test "$(get recon capture_iface)" = wlan1
-  check "round trip: session.default=labwc"    test "$(get session default)" = labwc
   check "round trip: clock_format"             test "$(get bar clock_format)" = HH:mm
   check "round trip keeps comments"            grep -q '^# blur: blur behind panels' "$STAGOS_DESKTOP_CONF"
   check "desktop.conf still parses with configparser" python3 -c "import configparser,sys; configparser.ConfigParser(interpolation=None).read(sys.argv[1])" "$STAGOS_DESKTOP_CONF"
   ini_get() { awk -v s="$1" -v k="$2" '/^[[:space:]]*[#;]/{next} /^\[/{sec=$0; gsub(/[][]/,"",sec); next} sec==s && index($0,"=") { key=substr($0,1,index($0,"=")-1); if (key==k) { print substr($0,index($0,"=")+1); exit } }' "$STAGOS_DESKTOP_CONF"; }
   check "shell reader (stag-plasma-apply style awk) sees the same values" bash -c "test \"$(ini_get effects animation_factor)\" = 0.4 && test \"$(ini_get bar clock_format)\" = HH:mm"
-  check "stag-session --status reads the session key" bash -c "STAGOS_STARTPLASMA=/nonexistent '$ROOT/desktop/bin/stag-session.sh' --status | grep -qx default=labwc"
   cp "$STAGOS_DESKTOP_CONF" "$T/before"; rt "set:bar.cpu=false"
   check "setting the same value rewrites nothing" test "$(cat "$T/before")" = "$(cat "$STAGOS_DESKTOP_CONF")"
 
@@ -113,12 +117,22 @@ else
   rm -f "$XDG_STATE_HOME/stagos/reset-layout.request"; mkdir -p "$XDG_STATE_HOME/stagos"
   rt "reset-layout"
   check "reset layout writes the request file" grep -q '^reset-layout ' "$XDG_STATE_HOME/stagos/reset-layout.request"
+  # Session page: "Retry Plasma at next login" clears the stag-session fail counter (same file, same effect as retry)
+  fails_file="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["session_fails_file"])' "$STAGOS_SETTINGS_CONTEXT")"
+  mkdir -p "${fails_file%/*}"; echo "2 $(cat /proc/sys/kernel/random/boot_id)" > "$fails_file"
+  check "session: fallback visible to stag-session before the retry" bash -c "STAGOS_STARTPLASMA=/bin/true '$ROOT/desktop/bin/stag-session.sh' --status | grep -q '^next=shell (plasma failed 2x'"
+  rt "session-retry"
+  check "session-retry clears the fallback (stag-session --status: next=plasma)" bash -c "STAGOS_STARTPLASMA=/bin/true '$ROOT/desktop/bin/stag-session.sh' --status | grep -qx 'next=plasma'"
   check "unknown selftest action fails" bash -c "! '$S' --selftest=bogus >/dev/null 2>&1"
 
   # every page loads clean, screenshot each (with the StagOS color scheme in kdeglobals when kwriteconfig6 exists)
   command -v kwriteconfig6 >/dev/null 2>&1 && "$ROOT/desktop/bin/stag-plasma-apply.sh" --base --quiet >/dev/null 2>&1
   cp "$ROOT/test/fixtures/plasma-desktop.conf" "$STAGOS_DESKTOP_CONF"
   shots="${STAGOS_SHOT_DIR:-$T/shots}"; mkdir -p "$shots"
+  # the Session page with the crash fallback active (shows the Retry button)
+  echo "2 $(cat /proc/sys/kernel/random/boot_id)" > "$fails_file"
+  STAGOS_STARTPLASMA=/bin/true "$S" --print-context | sed 's#"ifaces":\[[^]]*\]#"ifaces":["wlan0","wlan1"]#' > "$STAGOS_SETTINGS_CONTEXT"
+  check "context: fallback reported (session_fails=2, next=shell)" python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['session_fails'] == 2 and d['session_next'].startswith('shell')" "$STAGOS_SETTINGS_CONTEXT"
   for p in bar dock look session recon about; do
     out="$(ss --page=$p --shot="$shots/plasma-p3-settings-$p.png")"
     check "page $p loads without QML errors" bash -c "grep -q 'SHOT OK' <<< '$out' && ! grep -E '$bad' <<< '$out'"

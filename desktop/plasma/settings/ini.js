@@ -1,6 +1,6 @@
 .pragma library
 // Minimal INI reader/editor for desktop.conf. Edits values in place so comments, blank lines and
-// key order survive (the same thing stag-session does in shell). No quoting, no escapes: the
+// key order survive. No quoting, no escapes (the shell readers do not unquote either): the
 // contract values never need them.
 
 function _sectionOf(line) {

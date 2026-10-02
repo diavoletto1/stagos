@@ -23,151 +23,76 @@ sandbox() {
   local t; for t in "$@"; do ln -s "$FAKE" "$T/bin/$t"; done
   PATH="$T/bin:$ORIG_PATH"
 }
-# helpers call each other by their installed names (stag-nightlight, stag-lock): a shim dir maps them
+# helpers are called by their installed names (stag-session, stag-plasma-apply): a shim dir maps them
 mkdir -p "$T/shim"
 for f in "$BIN"/stag-*.sh; do ln -s "$f" "$T/shim/$(basename "$f" .sh)"; done
 BIN="$T/shim"; ORIG_PATH="$T/shim:$PATH"
 
-# ---- stag-toggle ----
-sandbox nmcli bluetoothctl rfkill pgrep pkill setsid wlsunset
-echo enabled > "$FAKE_DIR/nmcli.out"
-check "toggle wifi status true"  test "$(stag-toggle wifi status)" = true
-echo disabled > "$FAKE_DIR/nmcli.out"
-check "toggle wifi status false" test "$(stag-toggle wifi status)" = false
-echo "Powered: yes" > "$FAKE_DIR/bluetoothctl.out"
-check "toggle bt status true"    test "$(stag-toggle bluetooth status)" = true
-: > "$FAKE_DIR/bluetoothctl.out"
-check "toggle bt status false"   test "$(stag-toggle bluetooth status)" = false
-stag-toggle bluetooth toggle >/dev/null 2>&1
-check "toggle bt off->on unblocks + powers on" grep -q 'bluetoothctl power on' "$FAKE_LOG"
-echo 1 > "$FAKE_DIR/pgrep.rc"
-check "nightlight status false"  test "$(stag-nightlight status)" = false
-echo 0 > "$FAKE_DIR/pgrep.rc"
-check "nightlight status true"   test "$(stag-nightlight status)" = true
-echo 1 > "$FAKE_DIR/pgrep.rc"; : > "$FAKE_LOG"
-stag-nightlight start >/dev/null 2>&1
-check "nightlight start uses Tampa defaults" grep -q 'wlsunset -l 27.95 -L -82.46' "$FAKE_LOG"
-check "stag-toggle rejects junk" bash -c "! '$BIN/stag-toggle' bogus"
-
-# ---- stag-battery ----
-sandbox notify-send
-mkdir -p "$T/ps/BAT0"; export STAGOS_BAT_SYS="$T/ps" STAGOS_BAT_ONCE=1
-bat() { echo "$1" > "$T/ps/BAT0/capacity"; echo "$2" > "$T/ps/BAT0/status"; : > "$FAKE_LOG"; stag-battery; }
-bat 50 Discharging;  check "battery 50% silent"        test ! -s "$FAKE_LOG"
-bat 18 Discharging;  check "battery 18% notifies"      grep -q 'notify-send -u normal' "$FAKE_LOG"
-bat 8 Discharging;   check "battery 8% critical"       grep -q 'notify-send -u critical' "$FAKE_LOG"
-bat 8 Charging;      check "battery charging silent"   test ! -s "$FAKE_LOG"
-unset STAGOS_BAT_SYS STAGOS_BAT_ONCE
-
-# ---- stag-screenshot ----
-sandbox grim slurp swappy wl-copy notify-send
-export STAGOS_SHOT_DIR="$T/shots"
-# grim must leave a file behind (last argument), like the real one
-rm "$T/bin/grim"
-cat > "$T/bin/grim" <<'GRIM'
-#!/bin/bash
-echo "grim $*" >> "$FAKE_LOG"
-for a; do f="$a"; done
-echo png > "$f"
-GRIM
-chmod +x "$T/bin/grim"
-stag-screenshot full
-check "screenshot full writes cmd"   grep -q "^grim $T/shots/.*\.png" "$FAKE_LOG"
-check "screenshot copies + notifies" bash -c "grep -q '^wl-copy' '$FAKE_LOG' && grep -q '^notify-send' '$FAKE_LOG'"
-echo "10,20 30x40" > "$FAKE_DIR/slurp.out"; : > "$FAKE_LOG"
-stag-screenshot region
-check "screenshot region passes geometry" grep -q '^grim -g 10,20 30x40 ' "$FAKE_LOG"
-echo 1 > "$FAKE_DIR/slurp.rc"; : > "$FAKE_LOG"
-stag-screenshot region
-check "screenshot region cancelled: no grim" bash -c "! grep -q '^grim' '$FAKE_LOG'"
-unset STAGOS_SHOT_DIR
-
-# ---- stag-spotlight routing ----
-route() { # route <typed text> -> log
-  sandbox fuzzel qalc wl-copy notify-send plocate xdg-open
-  printf '%s\n' "$1" > "$FAKE_DIR/fuzzel.out"
-  echo "42" > "$FAKE_DIR/qalc.out"
-  stag-spotlight >/dev/null 2>&1
-}
-route "= 6*7";        check "spotlight '=' -> qalc"      grep -q '^qalc -t  6\*7' "$FAKE_LOG"
-route "2+2";          check "spotlight digits -> qalc"   grep -q '^qalc -t 2+2' "$FAKE_LOG"
-route "/notes.md";    check "spotlight '/' -> plocate"   grep -q '^plocate -i -l 200 -- notes.md' "$FAKE_LOG"
-route "f budget";     check "spotlight 'f ' -> plocate"  grep -q '^plocate -i -l 200 -- budget' "$FAKE_LOG"
-route "chromium";     check "spotlight text -> fuzzel --search" grep -q '^fuzzel --search chromium' "$FAKE_LOG"
-
-# ---- stag-menu ----
-sandbox fuzzel chromium notify-send
-printf 'tasks|https://h.invalid/tasks/\nmaps|https://h.invalid/maps/\n' > "$T/list"
-echo maps > "$FAKE_DIR/fuzzel.out"
-STAGOS_STAG_LIST="$T/list" stag-menu >/dev/null 2>&1
-check "stag-menu opens chosen url as app" grep -q '^chromium --app=https://h.invalid/maps/' "$FAKE_LOG"
-: > "$FAKE_LOG"; STAGOS_STAG_LIST="$T/none" stag-menu >/dev/null 2>&1
-check "stag-menu without config notifies" grep -q '^notify-send Stag' "$FAKE_LOG"
-
-# ---- stag-clip ----
-sandbox cliphist fuzzel wl-copy
-stag-clip pick >/dev/null 2>&1
-check "clip pick pipes cliphist->fuzzel->wl-copy" bash -c "grep -q '^cliphist list' '$FAKE_LOG' && grep -q '^cliphist decode' '$FAKE_LOG' && grep -q '^wl-copy' '$FAKE_LOG'"
-
-# ---- stag-session (tty1 session picker) ----
+# ---- stag-session (tty1: Plasma, or a plain shell after two fast failures) ----
 FS="$ROOT/test/fixtures/bin/fake-session"
-session_sandbox() { # fresh HOME + fake startplasma/labwc; $1 = 1 when Plasma is "installed"
+session_sandbox() { # fresh HOME + fake startplasma; $1 = 1 when Plasma is "installed"
   sandbox
   mkdir -p "$T/sess"; rm -f "$T/sess/"*
-  ln -s "$FS" "$T/sess/startplasma-wayland"; ln -s "$FS" "$T/bin/labwc"
-  export STAGOS_STARTPLASMA="$T/sess/startplasma-wayland" STAGOS_LABWC=labwc
+  ln -s "$FS" "$T/sess/startplasma-wayland"
+  export STAGOS_STARTPLASMA="$T/sess/startplasma-wayland" STAGOS_BOOT_ID=boot-1
+  # the fallback login shell: logs how it was started (args, STAGOS_NO_SESSION), never a real shell
+  # shellcheck disable=SC2016  # expands inside the fake shell, not here
+  printf '#!/bin/sh\necho "login-shell $* NO_SESSION=$STAGOS_NO_SESSION" >> "$FAKE_LOG"\n' > "$T/sess/login-shell"; chmod +x "$T/sess/login-shell"
   export STAGOS_PLASMA_DBUS_WRAPPER="$ROOT/test/fixtures/bin/plasma-dbus-run-session-if-needed"
-  export STAGOS_PLASMA_DATA="$ROOT/desktop/plasma"
   [ "${1:-1}" = 1 ] || rm -f "$T/sess/startplasma-wayland"
 }
+FAILS_F() { echo "$HOME/.cache/stagos/session-plasma-fails"; }
 session_sandbox 1
-check "session: default is plasma without desktop.conf" test "$(stag-session --status | head -1)" = default=plasma
-stag-session start >/dev/null 2>&1
+check "session: next is plasma on a fresh HOME" bash -c "stag-session --status | grep -qx 'next=plasma'"
+STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1; rc=$?
 check "session: start runs startplasma through the dbus wrapper" bash -c "grep -q '^dbus-wrapper $T/sess/startplasma-wayland' '$FAKE_LOG' && grep -q '^startplasma-wayland' '$FAKE_LOG'"
-check "session: clean plasma exit starts no labwc" bash -c "! grep -q '^labwc' '$FAKE_LOG'"
-: > "$FAKE_LOG"; QT_QPA_PLATFORMTHEME=qt6ct GTK_THEME=Adwaita:dark stag-session start >/dev/null 2>&1
-check "session: qt6ct never reaches Plasma" grep -q '^startplasma-wayland .*QT_QPA_PLATFORMTHEME= ' "$FAKE_LOG"
+check "session: clean plasma exit returns 0, no shell (the tty1 login ends)" bash -c "test $rc = 0 && ! grep -q '^login-shell' '$FAKE_LOG'"
+: > "$FAKE_LOG"; QT_QPA_PLATFORMTHEME=kde STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1
+check "session: the environment reaches Plasma untouched" grep -q '^startplasma-wayland .*QT_QPA_PLATFORMTHEME=kde ' "$FAKE_LOG"
+: > "$FAKE_LOG"; STAGOS_LOGIN_SHELL="$T/sess/login-shell" stag-session start >/dev/null 2>&1
+check "session: a fast clean exit (rc 0) twice also falls back (no tty1 loop)" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 2 && grep -qx 'login-shell -l NO_SESSION=1' '$FAKE_LOG'"
+rm -f "$(FAILS_F)"
+: > "$FAKE_LOG"; STAGOS_NO_SESSION=1 STAGOS_LOGIN_SHELL="$T/sess/login-shell" stag-session start >/dev/null 2>&1
+check "session: start from the fallback shell (old .zprofile block): no plasma, a non-login shell (no loop)" bash -c "! grep -q '^startplasma-wayland' '$FAKE_LOG' && grep -qx 'login-shell -i NO_SESSION=1' '$FAKE_LOG'"
 echo 1 > "$FAKE_DIR/startplasma-wayland.rc"; : > "$FAKE_LOG"
-stag-session start >/dev/null 2>&1
-check "session: 2 fast plasma failures -> labwc" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 2 && grep -q '^labwc' '$FAKE_LOG'"
+err="$(stag-session start 2>&1 >/dev/null)"; rc=$?
+check "session: 2 fast plasma failures, then stop (no third try)" test "$(grep -c '^startplasma-wayland' "$FAKE_LOG")" = 2
+check "session: fallback without a terminal returns 1" test "$rc" = 1
+: > "$FAKE_LOG"; STAGOS_LOGIN_SHELL="$T/sess/login-shell" STAGOS_BOOT_ID=boot-0 stag-session start >/dev/null 2>&1
+check "session: fallback on tty1 execs a login shell with STAGOS_NO_SESSION=1 (no loop)" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 2 && grep -qx 'login-shell -l NO_SESSION=1' '$FAKE_LOG'"
+echo "2 boot-1" > "$(FAILS_F)"
+check "session: fallback message says what failed, the log and how to retry" bash -c "grep -q 'Plasma failed to start 2 times' <<< \"\$1\" && grep -q 'session.log' <<< \"\$1\" && grep -q 'stag-session retry' <<< \"\$1\"" _ "$err"
 check "session: fallback logged" grep -q 'FALLBACK' "$HOME/.cache/stagos/session.log"
-check "session: status shows the fallback" bash -c "stag-session --status | grep -q '^next=labwc (plasma failed 2x'"
-: > "$FAKE_LOG"; stag-session start >/dev/null 2>&1
-check "session: fallback sticks (no plasma retry)" bash -c "! grep -q '^startplasma-wayland' '$FAKE_LOG' && grep -q '^labwc' '$FAKE_LOG'"
-SC="$HOME/.config/stagos/desktop.conf"; mkdir -p "${SC%/*}"
-printf '[bar]\ncpu=false\n' > "$SC"; touch -d '+2 seconds' "$SC"
-check "session: desktop.conf saved after the fallback (StagOS Settings) retries Plasma" bash -c "stag-session --status | grep -q '^next=plasma (default)'"
-rm -f "$SC"; echo 2 > "$HOME/.cache/stagos/session-plasma-fails"
-stag-session plasma >/dev/null
-check "session: 'stag-session plasma' clears the fallback" bash -c "stag-session --status | grep -qx 'fails=0'"
-rm -f "$SC" "$HOME/.cache/stagos/session-plasma-fails"; mkdir "$HOME/.cache/stagos/session-plasma-fails"
-: > "$FAKE_LOG"; stag-session start >/dev/null 2>&1
-check "session: unwritable fail counter still falls back after 2 tries (no loop)" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 2 && grep -q '^labwc' '$FAKE_LOG'"
-rmdir "$HOME/.cache/stagos/session-plasma-fails"
-: > "$FAKE_LOG"; STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1
-check "session: a slow plasma crash is not a fast failure" bash -c "grep -q '^startplasma-wayland' '$FAKE_LOG' && ! grep -q '^labwc' '$FAKE_LOG' && stag-session --status | grep -qx 'fails=0'"
-cp "$ROOT/test/fixtures/plasma-desktop.conf" "$HOME/dc.conf"; export STAGOS_DESKTOP_CONF="$HOME/dc.conf"
-stag-session labwc >/dev/null
-check "session: labwc sets [session] default=labwc" test "$(stag-session --status | head -1)" = default=labwc
-check "session: desktop.conf keeps comments and other sections" bash -c "grep -q '^# keep this comment' '$HOME/dc.conf' && grep -q '^blur=false' '$HOME/dc.conf' && test \$(grep -c '^default=' '$HOME/dc.conf') -eq 1"
-: > "$FAKE_LOG"; stag-session start >/dev/null 2>&1
-check "session: default labwc starts labwc only" bash -c "grep -q '^labwc' '$FAKE_LOG' && ! grep -q '^startplasma' '$FAKE_LOG'"
-rm -f "$HOME/dc2.conf"; STAGOS_DESKTOP_CONF="$HOME/dc2.conf" stag-session plasma >/dev/null
-check "session: creates desktop.conf with a [session] section" bash -c "grep -q '^\[session\]' '$HOME/dc2.conf' && grep -q '^default=plasma' '$HOME/dc2.conf'"
-unset STAGOS_DESKTOP_CONF
+check "session: status shows the fallback" bash -c "stag-session --status | grep -q '^next=shell (plasma failed 2x'"
+: > "$FAKE_LOG"; stag-session start >/dev/null 2>&1; rc=$?
+check "session: fallback sticks (no plasma retry, rc 1)" bash -c "! grep -q '^startplasma-wayland' '$FAKE_LOG' && test $rc = 1"
+STAGOS_BOOT_ID=boot-2 stag-session --status > "$T/st" 2>&1
+check "session: a reboot clears the fallback (counter is per boot)" grep -qx 'next=plasma' "$T/st"
+SC="$HOME/.config/stagos/desktop.conf"; mkdir -p "${SC%/*}"; printf '[session]\ndefault=labwc\n' > "$SC"
+check "session: an old [session] default=labwc is ignored" bash -c "STAGOS_BOOT_ID=boot-2 stag-session --status | grep -qx 'next=plasma'"
+rm "$FAKE_DIR/startplasma-wayland.rc"; : > "$FAKE_LOG"
+out="$(stag-session retry 2>&1)"
+check "session: retry outside tty1 clears the counter and starts nothing" bash -c "grep -q 'fallback cleared' <<< \"\$1\" && ! grep -q startplasma '$FAKE_LOG' && stag-session --status | grep -qx 'fails=0'" _ "$out"
+echo "2 boot-1" > "$(FAILS_F)"; : > "$FAKE_LOG"
+STAGOS_NO_SESSION=1 STAGOS_SESSION_FORCE_START=1 STAGOS_SESSION_FAST_SECS=0 stag-session retry >/dev/null 2>&1; rc=$?
+check "session: retry on tty1 starts Plasma now (in the foreground)" bash -c "grep -q '^startplasma-wayland' '$FAKE_LOG' && test $rc = 0 && ! grep -q '^login-shell' '$FAKE_LOG'"
+echo 2 > "$(FAILS_F)"
+check "session: an old counter without a boot id counts as 0" bash -c "stag-session --status | grep -qx 'fails=0'"
+rm -f "$(FAILS_F)"; mkdir "$(FAILS_F)"; echo 1 > "$FAKE_DIR/startplasma-wayland.rc"
+: > "$FAKE_LOG"; stag-session start >/dev/null 2>&1; rc=$?
+check "session: unwritable fail counter still stops after 2 tries (no loop)" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 2 && test $rc = 1"
+rmdir "$(FAILS_F)"
+: > "$FAKE_LOG"; STAGOS_SESSION_FAST_SECS=0 stag-session start >/dev/null 2>&1; rc=$?
+check "session: a slow plasma crash is not a fast failure" bash -c "test \$(grep -c '^startplasma-wayland' '$FAKE_LOG') -eq 1 && test $rc = 0 && stag-session --status | grep -qx 'fails=0'"
 session_sandbox 0
-check "session: no Plasma installed -> labwc" bash -c "stag-session --status | grep -q '^next=labwc (plasma not installed)'"
-stag-session start >/dev/null 2>&1
-check "session: no Plasma installed starts labwc" grep -q '^labwc' "$FAKE_LOG"
+check "session: no Plasma installed -> shell" bash -c "stag-session --status | grep -q '^next=shell (plasma not installed'"
+stag-session start >/dev/null 2>&1; rc=$?
+check "session: no Plasma installed: start returns 1, runs nothing" bash -c "test $rc = 1 && ! test -s '$FAKE_LOG'"
+STAGOS_LOGIN_SHELL="$T/sess/login-shell" stag-session start >/dev/null 2>&1
+check "session: no Plasma installed: login shell on tty1" grep -qx 'login-shell -l NO_SESSION=1' "$FAKE_LOG"
+check "session: labwc is gone (unknown command)" bash -c "! stag-session labwc 2>/dev/null"
 check "session: rejects junk" bash -c "! stag-session bogus"
-# notify-daemon: one owner for org.freedesktop.Notifications per session
-session_sandbox 1
-ln -s "$FS" "$T/bin/swaync"; ln -s "$FS" "$T/bin/plasma_waitforname"; export STAGOS_PLASMA_WAITFORNAME="$T/bin/plasma_waitforname"
-XDG_CURRENT_DESKTOP=KDE stag-session notify-daemon
-check "notify: Plasma waits for plasmashell" grep -q '^plasma_waitforname org.freedesktop.Notifications' "$FAKE_LOG"
-: > "$FAKE_LOG"; XDG_CURRENT_DESKTOP=labwc:wlroots stag-session notify-daemon
-check "notify: labwc gets swaync" grep -q '^swaync' "$FAKE_LOG"
-unset STAGOS_PLASMA_WAITFORNAME STAGOS_STARTPLASMA STAGOS_LABWC STAGOS_PLASMA_DBUS_WRAPPER
+unset STAGOS_STARTPLASMA STAGOS_PLASMA_DBUS_WRAPPER STAGOS_BOOT_ID
 
 # ---- stag-plasma-apply (kwriteconfig6/kreadconfig6/qdbus6 faked) ----
 apply_sandbox() {
@@ -219,26 +144,19 @@ unset STAGOS_PLASMA_DATA STAGOS_DESKTOP_CONF XDG_DATA_DIRS
 
 # ---- plasma data invariants ----
 P="$ROOT/desktop/plasma"
+check "base.kconf: Spectacle on Print (region), Shift+Print (full), Meta+Shift+R (record region)" bash -c "grep -q '^kglobalshortcutsrc|services/org.kde.spectacle.desktop|RectangularRegionScreenShot|Print' '$P/base.kconf' && grep -q '^kglobalshortcutsrc|services/org.kde.spectacle.desktop|FullScreenScreenShot|Shift+Print' '$P/base.kconf' && grep -q '^kglobalshortcutsrc|services/org.kde.spectacle.desktop|RecordRegion|Meta+Shift+R' '$P/base.kconf'"
 check "base.kconf: every line is file|group|key|value" bash -c "grep -vE '^(#|$)' '$P/base.kconf' | awk -F'|' 'NF < 4 { bad = 1 } END { exit bad }'"
 check "base.kconf: no hot corner, no wobbly/magic lamp/translucency" bash -c "grep -q '^kwinrc|Effect-overview|BorderActivate|9$' '$P/base.kconf' && for e in wobblywindows magiclamp translucency; do grep -q \"^kwinrc|Plugins|\${e}Enabled|false$\" '$P/base.kconf' || exit 1; done"
 check "window edges: active title bar #111111 over inactive #0a0a0a, Breeze outline Medium" bash -c "awk '/^\\[Colors:Header\\]\$/ {g = 1; next} /^\\[/ {g = 0} g && /^BackgroundNormal=17,17,17\$/ {ok = 1} END {exit !ok}' '$P/StagOS.colors' && grep -q '^breezerc|Common|OutlineIntensity|OutlineMedium\$' '$P/base.kconf'"
 check "StagOS.colors uses the contract palette" bash -c "grep -q 'BackgroundNormal=10,10,10' '$P/StagOS.colors' && grep -q 'DecorationFocus=200,16,46' '$P/StagOS.colors' && grep -q 'ForegroundNormal=240,240,240' '$P/StagOS.colors'"
-check "desktop.conf.default: contract sections" bash -c "for s in session bar dock effects recon; do grep -qx \"\\[\$s\\]\" '$P/desktop.conf.default' || exit 1; done"
+check "desktop.conf.default: contract sections" bash -c "for s in bar dock effects recon; do grep -qx \"\\[\$s\\]\" '$P/desktop.conf.default' || exit 1; done"
 check "layout.js: dock dodges windows, bar is 26px" bash -c "grep -q 'dock.hiding = \"dodgewindows\"' '$P/layout.js' && grep -q 'bar.height = 26' '$P/layout.js'"
 
 # ---- config invariants ----
-RC="$ROOT/desktop/labwc/rc.xml"
-# keys keyd owns must never also be plain labwc Super binds
-for k in c v x z a q w t f s; do
-  check "rc.xml has no bare W-$k bind (keyd owns it)" bash -c "! grep -q 'key=\"W-$k\"' '$RC'"
-done
-check "rc.xml: Super+Shift+V clipboard picker" grep -q 'key="W-S-v"' "$RC"
-check "rc.xml: screenshot binds 3/4"   bash -c "grep -q 'key=\"W-S-3\"' '$RC' && grep -q 'key=\"W-S-4\"' '$RC'"
-check "rc.xml: touchpad tap + natural scroll" bash -c "grep -q '<tap>yes' '$RC' && grep -q '<naturalScroll>yes' '$RC'"
 check "keyd map covers the ten Cmd keys" bash -c "for k in c v x z a q w t f s; do grep -q \"^\$k = C-\" '$ROOT/desktop/keyd/default.conf' || exit 1; done"
 check "foot never gets bare Ctrl from Cmd" bash -c "! sed -n '/^\[foot\]/,\$p' '$ROOT/desktop/keyd/app.conf' | grep -E '= C-[a-z]\$'"
+check "keyd passes Super+Shift+V through (Plasma clipboard history)" grep -qx 'v = M-S-v' "$ROOT/desktop/keyd/default.conf"
 check "no em dashes in tracked text" bash -c "cd '$ROOT' && ! grep -rlI --exclude-dir=.git \$'\xe2\x80\x94' . | grep -q ."
-check "no CDN/external urls in desktop css" bash -c "! grep -rE 'https?://' '$ROOT/desktop/swaync' '$ROOT/desktop/swayosd' '$ROOT/desktop/waybar-dock/style.css' '$ROOT/desktop/waybar/style.css'"
 
 # ---- snapshots module: backup.env must survive sourcing with hostile repo strings ----
 sandbox

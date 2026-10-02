@@ -43,20 +43,20 @@ wifi_monitor_iface() {
   return 1
 }
 
-# stagos_tty1_block: the ~/.zprofile block that starts the desktop on tty1 only. stag-session picks
-# Plasma or labwc (stag-session --status); a login on tty2+ stays a plain shell (escape hatch).
+# stagos_tty1_block: the ~/.zprofile block that starts Plasma on tty1 only (stag-session start). When Plasma
+# cannot start, stag-session execs a plain login shell with STAGOS_NO_SESSION=1, which this block respects (no
+# loop). A login on tty2+ is always a plain shell (escape hatch).
 stagos_tty1_block() {
   cat <<'EOF'
 
-# StagOS: autostart the desktop on tty1 (stag-session: Plasma or labwc)
-if [[ -z "${WAYLAND_DISPLAY:-}" && "$(tty)" == "/dev/tty1" ]]; then
-  if command -v stag-session >/dev/null 2>&1; then exec stag-session start; fi
-  exec labwc
+# StagOS: autostart Plasma on tty1 (stag-session; it falls back to a plain login shell)
+if [[ -z "${WAYLAND_DISPLAY:-}${STAGOS_NO_SESSION:-}" && "$(tty)" == "/dev/tty1" ]] && command -v stag-session >/dev/null 2>&1; then
+  exec stag-session start
 fi
 EOF
 }
 
-# stagos_zprofile_sync FILE: replace any older StagOS autostart block ('exec sway', 'exec labwc') with
+# stagos_zprofile_sync FILE: replace any older StagOS autostart block (whatever session it started) with
 # the current one. Returns 0 when FILE changed, 1 when it was already current. Honours DRY_RUN.
 stagos_zprofile_sync() {
   local zp="$1" tmp

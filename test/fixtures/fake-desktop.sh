@@ -6,7 +6,7 @@
 #   fake_sys_iface NAME TYPE [wireless]   add /sys/class/net/NAME (TYPE 1 = managed/ethernet, 803 = monitor)
 # shellcheck disable=SC2034
 FAKE_TOOLS="nmcli bluetoothctl busctl wpctl brightnessctl playerctl qdbus6 curl kreadconfig6 kwriteconfig6 tailscale gpspipe
-  pgrep pkill rfkill setsid foot konsole gtk-launch chromium wl-copy xdg-open loginctl systemctl stag-session kismet"
+  pgrep pkill rfkill setsid foot konsole gtk-launch chromium wl-copy xdg-open loginctl systemctl kismet"
 
 FAKE_SYS_PATH="${FAKE_SYS_PATH:-$PATH}"
 fake_desktop_setup() {

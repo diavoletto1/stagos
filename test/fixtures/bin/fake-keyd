@@ -1,0 +1,7 @@
+#!/bin/sh
+# fixture: stands in for keyd where the real daemon cannot run (no /dev/uinput in a container). Point
+# keyd-application-mapper at it with KEYD_BIN. Each call appends one line to $FAKE_KEYD_LOG: the arguments joined
+# by " | ", so `keyd bind reset "cmd.c = C-S-c"` logs "bind | reset | cmd.c = C-S-c".
+out=""
+for a in "$@"; do out="${out:+$out | }$a"; done
+printf '%s\n' "$out" >> "${FAKE_KEYD_LOG:?}"

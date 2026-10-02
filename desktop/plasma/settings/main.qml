@@ -17,7 +17,7 @@ Kirigami.ApplicationWindow {
     title: "StagOS Settings"
     visible: true
 
-    property var ctx: ({ conf: "", defaults: "", request: "", apps: [], ifaces: [], version: "unknown", host: "", readme: "", sessions: ["plasma", "labwc"] })
+    property var ctx: ({ conf: "", defaults: "", request: "", apps: [], ifaces: [], version: "unknown", host: "", readme: "", session_next: "plasma", session_fails: 0, session_fails_file: "" })
     property string shotPath: ""
     property string startPage: "bar"
 
@@ -48,7 +48,7 @@ Kirigami.ApplicationWindow {
             }
     }
 
-    // test hook: same code path as the UI handlers (conf.set / conf.dock* / conf.requestResetLayout)
+    // test hook: same code path as the UI handlers (conf.set / conf.dock* / conf.requestResetLayout / Session retry)
     function runSelftest(spec) {
         var acts = spec.split(","), ok = true
         for (var i = 0; i < acts.length; i++) {
@@ -59,6 +59,7 @@ Kirigami.ApplicationWindow {
             else if ((m = /^dock-remove:(\d+)$/.exec(a))) conf.dockRemove(parseInt(m[1]))
             else if ((m = /^dock-move:(\d+):(-?\d+)$/.exec(a))) conf.dockMove(parseInt(m[1]), parseInt(m[2]))
             else if (a === "reset-layout") { if (!conf.requestResetLayout()) ok = false }
+            else if (a === "session-retry") { if (!ctx.session_fails_file || !conf.writeFile(ctx.session_fails_file, "0\n")) ok = false }
             else { console.warn("SELFTEST unknown action " + a); ok = false }
         }
         selftestOk = ok

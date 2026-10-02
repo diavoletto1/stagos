@@ -1,5 +1,5 @@
 #!/bin/bash
-# fixture: generic fake command. Symlink it under the name of the real tool (nmcli, fuzzel, grim...)
+# fixture: generic fake command. Symlink it under the name of the real tool (kwriteconfig6, qdbus6, notify-send...)
 # in a temp dir at the front of PATH. Each call appends "name args" to $FAKE_LOG, saves stdin to
 # $FAKE_DIR/<name>.stdin, prints $FAKE_DIR/<name>.out if present, and exits with the number in
 # $FAKE_DIR/<name>.rc (default 0).

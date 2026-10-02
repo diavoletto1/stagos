@@ -17,7 +17,7 @@ kdeglobals|General|fixed|JetBrains Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 kdeglobals|General|accentColorFromWallpaper|false
 kdeglobals|WM|activeFont|Inter,10,-1,5,600,0,0,0,0,0,0,0,0,0,0,1
 plasmarc|Theme|name|StagOS
-# same cursor as labwc (XCURSOR_THEME=Adwaita, 24)
+# same cursor as the GTK settings (Adwaita, 24)
 kcminputrc|Mouse|cursorTheme|Adwaita
 kcminputrc|Mouse|cursorSize|24
 # no splash: straight from the tty to the desktop
@@ -61,11 +61,10 @@ kwinrc|Windows|FocusPolicy|ClickToFocus
 kwinrc|Windows|ElectricBorderMaximize|true
 kwinrc|Windows|ElectricBorderTiling|true
 kwinrc|Windows|RollOverDesktops|false
-# Night Light: the Control Center toggle sets Mode=Constant (warm now, until turned off); same warmth as
-# labwc's wlsunset (STAGOS_NIGHT_TEMP default)
+# Night Light: the Control Center toggle sets Mode=Constant (warm now, until turned off), 3500 K
 kwinrc|NightColor|NightTemperature|3500
 
-# ---- shortcuts (mirrors desktop/labwc/rc.xml where Plasma has an equivalent) ----
+# ---- shortcuts (Mac-like; keyd turns Super+C/V/X/Z/A/Q/W/T/F/S into Ctrl, see desktop/keyd) ----
 # Meta+Space = KRunner (Spotlight). Alt+Space and Alt+F2 stay as KDE defaults.
 kglobalshortcutsrc|services/org.kde.krunner.desktop|_launch|Meta+Space\tAlt+Space\tAlt+F2\tSearch
 # Mission Control: Meta+Tab (Super+Tab) and Ctrl+Up; the 4-finger swipe is a KWin built-in. Not Meta+W:
@@ -75,12 +74,14 @@ kglobalshortcutsrc|kwin|Overview|Meta+Tab\tCtrl+Up,Meta+W,Toggle Overview
 kglobalshortcutsrc|kwin|Walk Through Windows|Alt+Tab,Alt+Tab\tMeta+Tab,Walk Through Windows
 kglobalshortcutsrc|kwin|Walk Through Windows (Reverse)|Alt+Shift+Tab,Alt+Shift+Tab\tMeta+Shift+Tab,Walk Through Windows (Reverse)
 kglobalshortcutsrc|ksmserver|Lock Session|Meta+L\tScreensaver,Meta+L\tScreensaver,Lock Session
-# Print = region (like labwc), Super+Shift+3/4/5 like the labwc binds, spectacle's GUI on Meta+Shift+S
+# Spectacle does screenshots and recording: Print = region, Shift+Print = full screen, Meta+Shift+R records a
+# region (Spectacle's own default for it); the Mac keys Super+Shift+4/3/5 do the same; the GUI is Meta+Shift+S.
+# Where files go is Spectacle's own setting (Configure Spectacle > Save).
 kglobalshortcutsrc|services/org.kde.spectacle.desktop|_launch|Meta+Shift+S
 kglobalshortcutsrc|services/org.kde.spectacle.desktop|RectangularRegionScreenShot|Print\tMeta+Shift+4
-kglobalshortcutsrc|services/org.kde.spectacle.desktop|FullScreenScreenShot|Meta+Shift+3\tShift+Print
-kglobalshortcutsrc|services/org.kde.spectacle.desktop|RecordRegion|Meta+Shift+5
-# apps: Super+Return terminal, Super+E files (same as labwc)
+kglobalshortcutsrc|services/org.kde.spectacle.desktop|FullScreenScreenShot|Shift+Print\tMeta+Shift+3
+kglobalshortcutsrc|services/org.kde.spectacle.desktop|RecordRegion|Meta+Shift+R\tMeta+Shift+5
+# apps: Super+Return terminal (foot), Super+E files (thunar)
 kglobalshortcutsrc|services/foot.desktop|_launch|Meta+Return
 kglobalshortcutsrc|services/thunar.desktop|_launch|Meta+E
 # windows: Super+Up maximize, Super+Down minimize, Super+F11 fullscreen (quick tile top/bottom freed)
@@ -89,7 +90,7 @@ kglobalshortcutsrc|kwin|Window Minimize|Meta+Down\tMeta+PgDown,Meta+PgDown,Minim
 kglobalshortcutsrc|kwin|Window Quick Tile Top|none,Meta+Up,Quick Tile Window to the Top
 kglobalshortcutsrc|kwin|Window Quick Tile Bottom|none,Meta+Down,Quick Tile Window to the Bottom
 kglobalshortcutsrc|kwin|Window Fullscreen|Meta+F11,none,Make Window Fullscreen
-# workspaces: Ctrl+Alt+Left/Right like labwc (the 3/4 finger swipes are KWin built-ins)
+# workspaces: Ctrl+Alt+Left/Right (the 3/4 finger swipes are KWin built-ins)
 kglobalshortcutsrc|kwin|Switch One Desktop to the Left|Meta+Ctrl+Left\tCtrl+Alt+Left,Meta+Ctrl+Left,Switch One Desktop to the Left
 kglobalshortcutsrc|kwin|Switch One Desktop to the Right|Meta+Ctrl+Right\tCtrl+Alt+Right,Meta+Ctrl+Right,Switch One Desktop to the Right
 kglobalshortcutsrc|kwin|Window One Desktop to the Left|Ctrl+Alt+Shift+Left,none,Window One Desktop to the Left
@@ -97,7 +98,7 @@ kglobalshortcutsrc|kwin|Window One Desktop to the Right|Ctrl+Alt+Shift+Right,non
 # clipboard history on Super+Shift+V (keyd passes it through as Meta+Shift+V)
 kglobalshortcutsrc|plasmashell|show-on-mouse-pos|Meta+V\tMeta+Shift+V,Meta+V,Show Clipboard Items at Mouse Position
 
-# ---- touchpad (same intent as module trackpad / labwc <libinput>) ----
+# ---- touchpad: tap to click, natural scroll, palm rejection while typing ----
 # Defaults apply to every touchpad until one is changed in System Settings (KWin reads
 # [Libinput][Defaults][Touchpad] before the per-device group). ClickMethod 2 = clickfinger.
 kcminputrc|Libinput/Defaults/Touchpad|TapToClick|true
@@ -108,7 +109,7 @@ kcminputrc|Libinput/Defaults/Touchpad|DisableWhileTyping|true
 kcminputrc|Libinput/Defaults/Touchpad|MiddleButtonEmulation|false
 kcminputrc|Libinput/Defaults/Touchpad|PointerAcceleration|0.3
 
-# ---- power (same intent as module power): lid = suspend, dim, no sleep on AC ----
+# ---- power (module power keeps TLP + the logind lid switch): lid = suspend, dim, no sleep on AC ----
 # LidAction/AutoSuspendAction 1 = sleep, 0 = nothing. Docked with a monitor: lid does nothing.
 powerdevilrc|AC/Display|DimDisplayWhenIdle|true
 powerdevilrc|AC/Display|DimDisplayIdleTimeoutSec|300
@@ -128,14 +129,14 @@ powerdevilrc|Battery/SuspendAndShutdown|InhibitLidActionWhenExternalMonitorPrese
 powerdevilrc|LowBattery/SuspendAndShutdown|AutoSuspendAction|1
 powerdevilrc|LowBattery/SuspendAndShutdown|AutoSuspendIdleTimeoutSec|300
 powerdevilrc|LowBattery/SuspendAndShutdown|LidAction|1
-# lock at 5 min idle and on resume (labwc: swayidle locks at 5 min and before sleep)
+# lock at 5 min idle and on resume
 kscreenlockerrc|Daemon|Autolock|true
 kscreenlockerrc|Daemon|Timeout|5
 kscreenlockerrc|Daemon|LockOnResume|true
 kscreenlockerrc|Greeter/Wallpaper/org.kde.image/General|Image|file:///usr/share/stagos/stag-lock.png
 
-# ---- coexistence with labwc and the rest of StagOS ----
-# gnome-keyring (module keyring) is the secret store in both sessions: keep KWallet out of it
+# ---- the rest of StagOS ----
+# gnome-keyring (module keyring) is the secret store: keep KWallet out of it
 kwalletrc|Wallet|Enabled|false
 kwalletrc|org.freedesktop.secrets|apiEnabled|false
 # no file indexer on a 2014 laptop (plocate already covers file search)

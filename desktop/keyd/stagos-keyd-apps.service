@@ -1,0 +1,24 @@
+# StagOS: keyd's per-app rows (~/.config/keyd/app.conf, e.g. Super+C in foot = Ctrl+Shift+C, never Ctrl+C) under
+# Plasma. keyd-application-mapper's KDE backend loads a KWin script that reports every window activation over
+# D-Bus and answers each with `keyd bind reset <rows of that app>`. Needs python-dbus, python-gobject and the
+# keyd group (module keys). Installed and enabled by the plasma module; starts and stops with the Plasma session.
+[Unit]
+Description=keyd per-app keys under Plasma (keyd-application-mapper)
+PartOf=graphical-session.target
+After=plasma-kwin_wayland.service
+ConditionPathExists=/usr/bin/keyd-application-mapper
+ConditionPathExists=%h/.config/keyd/app.conf
+
+[Service]
+# The mapper picks its KDE backend only when this is set. Plasma exports it to the user manager too; setting it
+# here keeps the unit independent of that import.
+Environment=KDE_SESSION_VERSION=6
+ExecStart=/usr/bin/keyd-application-mapper
+# Leaving Plasma (or a crash) must not leave the last app's rows bound, e.g. foot's on the tty1 fallback
+ExecStopPost=-/usr/bin/keyd bind reset
+# KWin not on the bus yet (the mapper waits 5 s), or a crash: try again
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=plasma-workspace.target

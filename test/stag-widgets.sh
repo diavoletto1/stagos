@@ -137,7 +137,7 @@ check "night: KWin state read as D-Bus properties (Properties.Get)" grep -q -- '
 check "night on: bool with --notify" grep -q -- 'kwriteconfig6 --file kwinrc --group NightColor --key Active --type bool --notify true' "$FAKE_LOG"
 jcheck "night toggle -> off" "$(stag-ctl night toggle)" '.on == false'
 fake_state plasma no
-check "night outside Plasma without stag-nightlight -> 3" test "$(rc stag-ctl night on)" = 3
+check "night outside Plasma -> 3 (not available)" test "$(rc stag-ctl night on)" = 3
 
 # ---- volume, brightness, media ----
 new
@@ -244,8 +244,7 @@ check "session reboot through Plasma's logout (org.kde.Shutdown)" grep -q 'qdbus
 fake_state plasma no; : > "$FAKE_LOG"
 stag-ctl session poweroff >/dev/null
 check "session poweroff without Plasma: systemctl" grep -q '^systemctl poweroff' "$FAKE_LOG"
-: > "$FAKE_LOG"; stag-ctl session labwc >/dev/null
-check "session labwc: stag-session labwc, then log out" bash -c "grep -q '^stag-session labwc' '$FAKE_LOG' && grep -q '^loginctl terminate-session' '$FAKE_LOG'"
+check "session labwc is gone -> 2" test "$(rc stag-ctl session labwc)" = 2
 check "session junk -> 2" test "$(rc stag-ctl session dance)" = 2
 J="$(stag-ctl control)"
 jcheck "control: one JSON with every section" "$J" 'has("wifi") and has("bt") and has("dnd") and has("night") and .vol.volume == 40 and .bright.percent == 50 and has("media") and .recon.gps.mode == 3'
@@ -254,15 +253,10 @@ check "no arguments -> 2" test "$(rc stag-ctl)" = 2
 check "stag-lib refuses to run directly" test "$(rc bash "$ROOT/desktop/bin/stag-lib.sh")" = 2
 PATH="$ORIG_PATH"
 
-# ---- waybar scripts share stag-lib ----
+# ---- stag-lib recon helpers as the top bar sees them (tailnet ip, gps fix, a card already in monitor mode) ----
 new
-J="$(bash "$ROOT/desktop/waybar/scripts/tailscale.sh")"
-check "waybar tailscale via stag-lib" test "$J" = '{"text":"TS","class":"ok","tooltip":"tailnet up  100.64.0.7"}'
-check "waybar gps via stag-lib" test "$(bash "$ROOT/desktop/waybar/scripts/gps.sh")" = '{"text":"GPS 3D","class":"ok"}'
 fake_sys_iface wlan1 803 wireless
-check "waybar capture via stag-lib (sysfs monitor type)" test "$(bash "$ROOT/desktop/waybar/scripts/capture.sh")" = '{"text":"MON wlan1","class":"hot","tooltip":"capturing on wlan1"}'
-rm "$T/sb/bin/stag-lib"
-check "waybar scripts degrade without stag-lib" bash -c "bash '$ROOT/desktop/waybar/scripts/capture.sh' | grep -q 'MON ?'"
+jcheck "recon via stag-lib: tailnet ip, 3D fix, monitor-mode card" "$(stag-ctl recon status)" '.ts.ip == "100.64.0.7" and .gps.mode == 3 and .capture.monitor == "wlan1"'
 PATH="$ORIG_PATH"
 
 # ---- plasmoid packages (static; kpackagetool6 + qmllint run in the container test) ----

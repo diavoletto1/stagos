@@ -5,8 +5,8 @@
 #   desktop (dock on an empty desktop), window (hairline border), overview (Meta+Tab), window-dodge (dock hides
 #   under a big window), control-center, stag-menu, stag-menu-about, notify / notify-dnd (popups with the tray
 #   applet hidden, none with DND on), appmenu off/on (live [bar] appmenu toggle, kept after a plasmashell
-#   restart), settings (StagOS Settings), systemsettings (the StagOS entry), then a headless labwc start through
-#   stag-session. Output: $1 (default /out), file names $SHOT_PREFIX-<name>.png (default plasma).
+#   restart), settings (StagOS Settings), systemsettings (the StagOS entry). Output: $1 (default /out), file names
+#   $SHOT_PREFIX-<name>.png (default plasma).
 # The readouts get a stagpad-like /sys and /proc (test/fixtures/fake-desktop.sh) so the bar is not empty.
 # $out/experiment.sh, when present, is sourced inside the session after the window shot (one-off probes).
 set -uo pipefail
@@ -16,7 +16,7 @@ SHOT_PREFIX="${SHOT_PREFIX:-plasma}"
 mkdir -p "$out"
 log() { echo "smoke: $*"; }
 
-sudo pacman -S --needed --noconfirm xorg-server-xvfb xorg-xwd imagemagick libnotify xdotool foot labwc >/dev/null 2>&1 \
+sudo pacman -S --needed --noconfirm xorg-server-xvfb xorg-xwd imagemagick libnotify xdotool foot >/dev/null 2>&1 \
   || { log "could not install the X tools"; exit 1; }
 # foot is a dock launcher: resync the dock so it is pinned (Plasma is not running yet: config only)
 stag-plasma-apply --quiet
@@ -37,6 +37,7 @@ export XDG_RUNTIME_DIR=/tmp/xdg-smoke XDG_CURRENT_DESKTOP=KDE KDE_FULL_SESSION=t
 export WAYLAND_DISPLAY=wayland-9 QT_QPA_PLATFORM=wayland
 install -d -m 700 "$XDG_RUNTIME_DIR"
 
+# shellcheck disable=SC2317,SC2329  # run by name below (export -f session; dbus-run-session -- bash -c session)
 session() {
   local xv kw ps ids t0 pids=()
   shot() { xwd -root -silent -display :5 | magick xwd:- "$out/$SHOT_PREFIX-$1.png" && log "shot $1"; }
@@ -176,14 +177,10 @@ grep -a -iE 'org\.stagos|stagos.*(error|warn)' "$out/plasmashell.log" | head -30
 log "stag-settings / systemsettings warnings:"
 grep -a -iE 'error|warn' "$out/stag-settings.log" "$out/systemsettings.log" 2>/dev/null | head -12
 
-# labwc through stag-session, headless: the tty1 path still starts labwc
-stag-session labwc >/dev/null
-rm -rf /tmp/xdg-labwc; install -d -m 700 /tmp/xdg-labwc
-env -u WAYLAND_DISPLAY -u DISPLAY -u QT_QPA_PLATFORM XDG_RUNTIME_DIR=/tmp/xdg-labwc WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
-  timeout 8 stag-session start > "$out/labwc.log" 2>&1; rc=$?
-log "labwc via stag-session: rc=$rc (124 = still running when the timeout stopped it), session.log: $(tail -1 "$HOME/.cache/stagos/session.log")"
-if [ "$rc" = 124 ] && grep -q 'start labwc: labwc (default)' "$HOME/.cache/stagos/session.log"; then log "labwc via stag-session: PASS"
-else log "labwc via stag-session: FAIL"; head -20 "$out/labwc.log"; fi
-stag-session plasma >/dev/null
+# the session that started: plasmashell loaded the StagOS widgets (the same check start_shell waits for)
+smoke_rc=0
+if [ "$(grep -c '^org.stagos' "$out/widgets.txt" 2>/dev/null)" -ge 2 ]; then log "plasma started with the StagOS widgets: PASS"
+else log "plasma started with the StagOS widgets: FAIL"; smoke_rc=1; fi
 rm -rf "$fk"
 ls -la "$out"
+exit "$smoke_rc"

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # stagos-desktop: macOS-class desktop modules for StagOS. Run as the desktop user (uses sudo).
 #   ./stagos-desktop                 all modules, in order
-#   ./stagos-desktop keys bar        only the named modules
+#   ./stagos-desktop keys plasma     only the named modules
 #   ./stagos-desktop --list          module names
 #   DRY_RUN=1 ./stagos-desktop       print state-changing commands instead of running them
+#   ./stagos-desktop cleanup-labwc   a box that ran the labwc-era StagOS: back up its configs, remove its packages
 # Each module is provision/desktop/NN-name.sh defining stagos_dm_name; all are idempotent.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,12 +22,20 @@ if [[ -r "$LOCAL_CONF" ]]; then source "$LOCAL_CONF"; else warn "no $LOCAL_CONF 
 mapfile -t ALL < <(for f in "$HERE"/provision/desktop/[0-9][0-9]-*.sh; do b="$(basename "$f" .sh)"; echo "${b#*-}"; done)
 
 if [[ "${1:-}" == "--list" ]]; then printf '%s\n' "${ALL[@]}"; exit 0; fi
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then sed -n '2,7p' "$0" | sed 's/^# \?//'; exit 0; fi
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then sed -n '2,8p' "$0" | sed 's/^# \?//'; exit 0; fi
 [[ ${EUID:-$(id -u)} -ne 0 ]] || die "run as your desktop user, not root (modules call sudo)"
 [[ "${STAGOS_DESKTOP:-1}" == "1" ]] || { warn "STAGOS_DESKTOP=0, nothing to do"; exit 0; }
 
 # file comparison in the helpers needs cmp (diffutils is in base on a real install)
 have cmp || [[ "${DRY_RUN:-0}" == "1" ]] || run sudo pacman -S --needed --noconfirm diffutils
+
+if [[ "${1:-}" == cleanup-labwc ]]; then
+  # shellcheck source=lib/labwc-cleanup.sh
+  source "$HERE/lib/labwc-cleanup.sh"
+  stagos_cleanup_labwc
+  log "files changed this run: $DM_CHANGED"
+  exit 0
+fi
 
 MODS=("$@"); [[ ${#MODS[@]} -gt 0 ]] || MODS=("${ALL[@]}")
 modfile() { local g=("$HERE"/provision/desktop/[0-9][0-9]-"$1".sh); [[ -f "${g[0]}" ]] && echo "${g[0]}"; }

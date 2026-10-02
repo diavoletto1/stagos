@@ -7,18 +7,18 @@ stagos_65_extras() {
   fi
   local pkgs=(
     qt6-wayland xorg-xwayland qt6-multimedia-ffmpeg
-    gnome-themes-extra nwg-look qt6ct
+    gnome-themes-extra
     noto-fonts noto-fonts-emoji noto-fonts-cjk ttf-nerd-fonts-symbols
     thunar thunar-volman thunar-archive-plugin gvfs tumbler xarchiver
     udisks2 udiskie xdg-user-dirs
     imv zathura zathura-pdf-mupdf mpv
     bluez bluez-utils bluetui
     libva-intel-driver earlyoom pacman-contrib
-    cliphist swappy kanshi wlopm wlsunset
+    plocate
     btop fzf zoxide eza bat ripgrep fd tealdeer lazygit restic
   )
   run sudo pacman -S --needed --noconfirm "${pkgs[@]}"
-  run sudo systemctl enable --now bluetooth.service earlyoom.service paccache.timer
+  run sudo systemctl enable --now bluetooth.service earlyoom.service paccache.timer plocate-updatedb.timer
   run xdg-user-dirs-update
   # tty1 autologin: the disk-unlock screen is the login page, so skip the second prompt
   if [[ "${STAGOS_AUTOLOGIN:-1}" == "1" ]]; then

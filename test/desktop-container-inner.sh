@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Runs INSIDE the container as root (see desktop-container.sh). Phases: install | verify | modules <names...>
+# Runs INSIDE the container as root (see desktop-container.sh). Phases: all | install | plasma | migrate | fresh | modules <names...>
 set -euo pipefail
 phase="${1:-install}"; shift || true
-export STAGOS_APPS_EXCLUDE="blender freecad libreoffice-fresh qemu-desktop virt-manager"   # multi-GB; names are checked to resolve
+# multi-GB; names are checked to resolve. STAGOS_APPS_EXCLUDE_EXTRA: more to skip (test/fresh-install-container.sh)
+export STAGOS_APPS_EXCLUDE="blender freecad libreoffice-fresh qemu-desktop virt-manager ${STAGOS_APPS_EXCLUDE_EXTRA:-}"
 export STAGOS_KEYRING_EMPTY=1
 
 if true; then
@@ -22,5 +23,7 @@ STAGOS_STAG_PATHS=(tasks maps control lab media fitness)
 STAGOS_RESTIC_REPO="/tmp/restic-test-repo"
 STAGOS_RESTIC_PASSWORD_FILE="$HOME/.config/stagos/restic.pass"
 CONF
+# migrate phase: the labwc-era StagOS tree (git archive of the old ref, see test/labwc-migrate-container.sh)
+if [[ -d /old ]]; then rm -rf /home/jack/stagos-old; cp -a /old /home/jack/stagos-old; chown -R jack:jack /home/jack/stagos-old; fi
 chown -R jack:jack /home/jack/stagos
 exec su jack -c "cd ~/stagos && STAGOS_APPS_EXCLUDE='$STAGOS_APPS_EXCLUDE' STAGOS_KEYRING_EMPTY=1 bash test/desktop-container-user.sh $phase $*"
