@@ -16,3 +16,8 @@ STAGOS_RESTIC_PASSWORD_FILE="$HOME/.config/stagos/restic.pass"
 # what to back up (space separated) and how often (systemd OnCalendar)
 STAGOS_RESTIC_PATHS="$HOME"
 STAGOS_RESTIC_SCHEDULE="daily"
+
+# ---- MAC privacy (module: network) ----
+# Saved wifi connections that keep the hardware MAC (router allowlist / DHCP reservation). Every other wifi network
+# gets its own random MAC. Space separated NetworkManager connection names (no spaces in a name; use stag-mac trust for those); see `stag-mac list`.
+STAGOS_TRUSTED_NETS=""

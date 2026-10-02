@@ -5,8 +5,9 @@ The disk-unlock prompt is styled as the login page: STAG OS wordmark, HUD
 corners, avatar, username, password box. Dots and messages are separate
 images so the plymouth script never needs a font at boot.
 
-Writes to assets/plymouth/stagos/: bg.png panel.png dot.png hint.png err.png signin.png
+Writes to assets/plymouth/stagos/: bg.png panel.png dot.png hint.png err.png signin.png bar.png track.png
 Usage: python3 tools/make-login.py [username]
+       python3 tools/make-login.py --progress   only the progress bar pieces (no fonts needed)
 """
 import importlib.util
 import os
@@ -23,7 +24,7 @@ BG, RED, WHITE = walls.BG, walls.RED, walls.WHITE
 GREY = (119, 119, 119)
 SILVER = (168, 168, 168)
 OUT = os.path.join(walls.ROOT, "assets", "plymouth", "stagos")
-USER = sys.argv[1] if len(sys.argv) > 1 else "jack"
+USER = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else "jack"
 
 # panel layout (design px); the plymouth script mirrors BOX_CY / MSG_Y / DOT_STEP
 PW, PH = 720, 400
@@ -89,6 +90,12 @@ def dot():
     save(down(img, n, n), "dot.png")
 
 
+def progress():
+    """1x1 solid pieces; the plymouth script scales them to the bar size."""
+    save(Image.new("RGBA", (1, 1), RED + (255,)), "bar.png")
+    save(Image.new("RGBA", (1, 1), (58, 58, 58, 255)), "track.png")
+
+
 def label(text, color, name, size=24, weight="Regular"):
     s = SS
     f = walls.font(size * s, weight)
@@ -104,10 +111,14 @@ def label(text, color, name, size=24, weight="Regular"):
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+    if sys.argv[1:] == ["--progress"]:
+        progress()
+        sys.exit(0)
+    progress()
     background()
     panel()
     dot()
     label("PRESS ENTER TO SIGN IN", GREY, "hint.png")
     label("INCORRECT PASSWORD", RED, "err.png", weight="Bold")
     label("SIGNING IN", SILVER, "signin.png")
-    print("wrote", ", ".join(["bg.png", "panel.png", "dot.png", "hint.png", "err.png", "signin.png"]))
+    print("wrote", ", ".join(["bg.png", "panel.png", "dot.png", "hint.png", "err.png", "signin.png", "bar.png", "track.png"]))

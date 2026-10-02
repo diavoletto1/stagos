@@ -1,0 +1,7 @@
+# StagOS firewall drop-in: KDE Connect (module link installs it as /etc/nftables.d/kdeconnect.nft).
+# Contract with the firewall module: /etc/nftables.conf includes /etc/nftables.d/*.nft from INSIDE its
+# inbound filter chain (chain input { ...; include "/etc/nftables.d/*.nft" }), so a drop-in holds rule
+# statements only, no table or chain. Discovery is a UDP broadcast on 1716; pairing and transfers use
+# TCP and UDP 1714-1764. Everything is TLS between paired devices; an unpaired device can only ask to pair.
+udp dport 1714-1764 accept comment "kdeconnect"
+tcp dport 1714-1764 accept comment "kdeconnect"

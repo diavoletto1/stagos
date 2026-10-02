@@ -151,6 +151,71 @@ plasma_test_layer() {
   t "test/plasma-settings.sh (app loads headless, round trips, screenshots)" env STAGOS_SHOT_DIR="$shots" bash test/plasma-settings.sh
 }
 
+# ---- modules network, firewall, boot (hardening): shared by the "all" and "harden" phases ----
+harden_checks() {
+  local C=/etc/NetworkManager/conf.d d=/usr/share/plymouth/themes/stagos f out
+  sec "hardening: files"
+  t "/etc/nftables.conf is the repo ruleset" cmp desktop/firewall/nftables.conf /etc/nftables.conf
+  t "/etc/nftables.d exists" test -d /etc/nftables.d
+  t "stag-fw installed" test -x /usr/local/bin/stag-fw
+  t "stag-mac installed" test -x /usr/local/bin/stag-mac
+  t "NM MAC drop-in is the repo file" cmp desktop/network/20-stagos-mac.conf "$C/20-stagos-mac.conf"
+  t "no ufw or firewalld pulled in" bash -c "! pacman -Q ufw firewalld 2>/dev/null | grep -q ."
+  sec "hardening: nftables ruleset (syntax with and without drop-ins, load, reload, behaviour)"
+  t "nft -c: ruleset parses with no drop-ins" sudo nft -c -f /etc/nftables.conf
+  sudo cp test/fixtures/nftables.d/kdeconnect.nft /etc/nftables.d/kdeconnect.nft
+  t "nft -c: ruleset parses with the KDE Connect drop-in" sudo nft -c -f /etc/nftables.conf
+  t "load the ruleset" sudo nft -f /etc/nftables.conf
+  t "reload leaves exactly one stagos table (no flush, no duplicates)" bash -c "sudo nft -f /etc/nftables.conf && test \$(sudo nft list tables | grep -c 'inet stagos') -eq 1"
+  t "input policy is drop" bash -c "sudo nft list chain inet stagos input | grep -q 'policy drop'"
+  t "the drop-in ports are inside chain input" bash -c "sudo nft list chain inet stagos input | grep -q 'dport 1714-1764 accept'"
+  t "no forward chain (libvirt and tailscale routing untouched)" bash -c "! sudo nft list table inet stagos | grep -q 'hook forward'"
+  t "other tables survive a reload" bash -c "sudo nft add table inet other_tool && sudo nft -f /etc/nftables.conf && sudo nft list tables | grep -q 'inet other_tool'"
+  t "stag-fw check" stag-fw check
+  t "stag-fw status reports ON" bash -c "stag-fw status | grep -q 'firewall: ON'"
+  # no systemd in the container: a stub systemd-run where sudo's secure_path finds it first
+  printf '#!/bin/sh\nexit 0\n' | sudo tee /usr/local/bin/systemd-run >/dev/null; sudo chmod +x /usr/local/bin/systemd-run
+  t "stag-fw off-for deletes the table" bash -c "stag-fw off-for 10m | grep -q OFF && ! sudo nft list table inet stagos"
+  sudo rm -f /usr/local/bin/systemd-run
+  t "stag-fw on puts it back" bash -c "stag-fw on && sudo nft list table inet stagos"
+  sudo nft delete table inet other_tool
+  sudo rm -f /etc/nftables.d/kdeconnect.nft
+  sec "hardening: NetworkManager MAC config"
+  out="$(NetworkManager --print-config 2>/dev/null)"
+  t "NM parses the config and reports scan randomisation" grep -q '^wifi.scan-rand-mac-address=yes' <<<"$out"
+  t "NM reports the per-connection stable default" grep -q '^wifi.cloned-mac-address=stable' <<<"$out"
+  sec "hardening: Plymouth theme"
+  for f in stagos.plymouth stagos.script bg.png logo.png panel.png dot.png hint.png err.png signin.png bar.png track.png; do
+    t "theme file $f" test -s "$d/$f"
+  done
+  t "plymouth-set-default-theme -l lists stagos" bash -c "plymouth-set-default-theme -l | grep -qx stagos"
+  t "stagos is the default theme (no -R: initramfs untouched)" bash -c "test \"\$(plymouth-set-default-theme)\" = stagos"
+  t "theme descriptor points at the installed script" grep -q "ScriptFile=$d/stagos.script" "$d/stagos.plymouth"
+  t "script balances braces and parens" bash -c "s=\$(cat assets/plymouth/stagos/stagos.script); test \$(tr -cd '{' <<<\"\$s\" | wc -c) -eq \$(tr -cd '}' <<<\"\$s\" | wc -c) && test \$(tr -cd '(' <<<\"\$s\" | wc -c) -eq \$(tr -cd ')' <<<\"\$s\" | wc -c)"
+  t "theme script uses the progress API and the password API" bash -c "grep -q SetBootProgressFunction assets/plymouth/stagos/stagos.script && grep -q SetDisplayPasswordFunction assets/plymouth/stagos/stagos.script"
+  t "no em dashes in what the hardening modules ship" bash -c "! grep -rlP '\x{2014}' desktop/firewall desktop/network desktop/bin/stag-fw.sh desktop/bin/stag-mac.sh provision/desktop/22-firewall.sh provision/desktop/23-boot.sh provision/desktop/05-network.sh assets/plymouth/stagos/stagos.script"
+}
+
+if [[ "$phase" == harden ]]; then
+  sec "static: shellcheck (hardening modules and helpers)"
+  t "shellcheck clean" shellcheck -x -s bash stagos-desktop lib/*.sh provision/desktop/05-network.sh provision/desktop/22-firewall.sh provision/desktop/23-boot.sh desktop/bin/stag-fw.sh desktop/bin/stag-mac.sh test/*.sh
+  sec "harden: dry run"
+  DRY_RUN=1 ./stagos-desktop network firewall boot > /tmp/dry.log 2>&1; t "dry run exits 0" test $? -eq 0
+  t "dry run changed nothing on disk" bash -c "! test -e /etc/nftables.d && ! test -e /usr/local/bin/stag-fw"
+  sec "harden: REAL run 1"
+  ./stagos-desktop network firewall boot > /tmp/run1.log 2>&1; t "run 1 exits 0" test $? -eq 0
+  grep -a -E 'files changed|warn|boot:' /tmp/run1.log | tail -8
+  t "run 1 prints the mkinitcpio step" grep -q 'sudo mkinitcpio -P' /tmp/run1.log
+  sec "harden: REAL run 2 (idempotency: nothing may change)"
+  ./stagos-desktop network firewall boot > /tmp/run2.log 2>&1; t "run 2 exits 0" test $? -eq 0
+  t "run 2 changed 0 files" grep -q 'files changed this run: 0$' /tmp/run2.log
+  harden_checks
+  sec "helper unit tests"
+  t "test/desktop-scripts.sh" bash test/desktop-scripts.sh
+  echo; echo "HARDEN RESULT: $pass passed, $fail failed"
+  [ "$fail" -eq 0 ]; exit
+fi
+
 if [[ "$phase" == plasma ]]; then
   sec "static: shellcheck (plasma module and helpers)"
   t "shellcheck clean" shellcheck -x -s bash stagos-desktop lib/*.sh provision/desktop/20-plasma.sh desktop/bin/stag-session.sh desktop/bin/stag-plasma-apply.sh test/*.sh config/stagos.conf

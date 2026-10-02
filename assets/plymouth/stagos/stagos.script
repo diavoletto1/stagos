@@ -1,6 +1,7 @@
 // StagOS boot splash. Boot/shutdown: pulsing ring. Disk unlock: styled as the
 // login page (the LUKS passphrase is the login; tty1 autologins after it).
-// All text is pre-rendered images (tools/make-login.py), no fonts needed here.
+// A thin red progress line runs under the ring while booting. All text is
+// pre-rendered images (tools/make-login.py), no fonts needed here.
 // Layout constants mirror tools/make-login.py: panel 720x400, box center y 326,
 // message y 390, dot step 30 (design px at 2560x1440).
 Window.SetBackgroundTopColor(0.04, 0.04, 0.04);
@@ -41,6 +42,20 @@ for (i = 0; i < 32; i++) {
     dots[i].SetOpacity(0);
 }
 
+// thin progress line: 1x1 red/grey pixels scaled to the bar (boot only)
+bar_w = 480 * s;
+bar_h = 3 * s;
+if (bar_h < 2) {
+    bar_h = 2;
+}
+bar_x = W / 2 - bar_w / 2;
+bar_y = H / 2 + 330 * s;
+track.sprite = Sprite(Image("track.png").Scale(bar_w, bar_h));
+track.sprite.SetPosition(bar_x, bar_y, 0);
+fill.img = Image("bar.png");
+fill.sprite = Sprite(fill.img.Scale(1, bar_h));
+fill.sprite.SetPosition(bar_x, bar_y, 1);
+
 hint_img = scaled("hint.png");
 err_img = scaled("err.png");
 signin_img = scaled("signin.png");
@@ -61,15 +76,33 @@ fun hide_dots() {
 }
 
 mode = "boot";
+tick = 0;
 submitted = 0;
 failed = 0;
 
 fun refresh_cb() {
     if (mode == "boot") {
-        logo.sprite.SetOpacity(Math.Sin(Plymouth.GetTime() * 2) * 0.15 + 0.85);
+        global.tick = tick + 1;
+        logo.sprite.SetOpacity(0.85 + 0.15 * Math.Sin(tick / 20));
     }
 }
 Plymouth.SetRefreshFunction(refresh_cb);
+
+fun progress_cb(duration, progress) {
+    if (mode == "boot") {
+        w = bar_w * progress;
+        if (w < 1) {
+            w = 1;
+        }
+        fill.sprite.SetImage(fill.img.Scale(w, bar_h));
+    }
+}
+Plymouth.SetBootProgressFunction(progress_cb);
+
+fun hide_bar() {
+    track.sprite.SetOpacity(0);
+    fill.sprite.SetOpacity(0);
+}
 
 fun display_password_cb(prompt, bullets) {
     if (submitted) {
@@ -78,6 +111,7 @@ fun display_password_cb(prompt, bullets) {
     }
     global.mode = "login";
     logo.sprite.SetOpacity(0);
+    hide_bar();
     panel.sprite.SetOpacity(1);
 
     n = bullets;
