@@ -71,6 +71,8 @@ On stagpad: `cd /opt/stagos && git pull && ./stagos-desktop`, then log out and b
 | `stag` | `chromium --app` launcher per service in `STAGOS_STAG_PATHS` at `<scheme>://<host>/<name>/` (from `config/local.conf`), icon tiles, listed in the STAG menu and KRunner. URLs are written only under `~/.local` and `~/.config` |
 | `hidpi` | Inter + JetBrains Mono, fontconfig light hinting with grayscale AA, `desktop.env` with the panel scale `STAGOS_OUTPUT_SCALE` (default 1.5, applied by the plasma module at the first login) |
 | `plasma` | the KDE Plasma 6 Wayland session (see [Plasma](#plasma)): StagOS HUD look, top bar + floating dock, touchpad, night light, Spectacle keys, `stag-session` on tty1, keyd's per-app keys (`stagos-keyd-apps.service`). `STAGOS_DESKTOP_PLASMA=0` skips it |
+| `link` | StagSystem on the desktop (see [Link](#link-stagsystem-on-the-desktop)): stag-ntfy messages as Plasma notifications (`stagos-ntfy.service`), the KRunner runner (`t`, `ask`, `stag`), KDE Connect + its firewall drop-in. `STAGOS_LINK_KDECONNECT=0` skips KDE Connect |
+| `lab` | stagpad as a stag-lab node: key-only sshd for the stag-lab web terminal, stag-lab's key in `~/.ssh/authorized_keys` limited to stagmini; optional node exporter (`STAGOS_LAB_METRICS=1`). Without `STAGOS_LAB_SSH_PUBKEY` it installs nothing |
 
 **Why TLP, not power-profiles-daemon:** the repo already enables TLP; the two conflict; TLP's runtime PM and USB/PCIe/SATA
 tuning matter more on a 2014 ThinkPad battery than PPD's three profiles.
@@ -196,6 +198,89 @@ internal eDP panel) is set once at the first Plasma login with kscreen-doctor; c
   capability (`setcap -r /usr/bin/kwin_wayland`), runs `Xvfb`, `kwin_wayland --x11-display` and plasmashell inside
   `dbus-run-session`, and grabs the X root with `xwd` (`test/plasma-smoke.sh`, run by `test/stag-widgets-container.sh`).
 
+### Link: StagSystem on the desktop
+
+Module `link`. Private values come from `config/local.conf` (`STAGOS_NTFY_*`, see `local.conf.example`).
+
+**ntfy notifications.** `stagos-ntfy.service` is a systemd user unit that starts with Plasma. It runs
+`~/.local/lib/stagos/stag-ntfy-notify`, which subscribes to `STAGOS_NTFY_TOPICS` (default `stag-alerts,stag-agents`)
+on stag-ntfy (`https://<STAGOS_NTFY_HOST or STAGOS_STAG_HOST>:8443`; ntfy cannot sit under a sub-path, so it has its
+own Caddy site on that port). It shows each message with `notify-send`:
+- app StagOS, icon `stag-ntfy`;
+- ntfy priority 1-2 shows as low urgency, 3-4 as normal, 5 as critical;
+- if the message has a click URL (http/https only), clicking the notification opens it.
+
+What it does when things go wrong or change:
+- **Lost connection:** it reconnects with backoff (2 s doubling up to 5 min) and logs one line per state change (`journalctl --user -u stagos-ntfy`), never a notification about itself.
+- **Missed messages:** after a gap it shows up to 5 of the messages it missed, then "N more while offline".
+- **Do Not Disturb:** popups are Plasma's call, and while DND is on a priority 5 message is sent as normal, so it cannot break through.
+- **Turning it off:** set `[link] ntfy=false` in `~/.config/stagos/desktop.conf`. It is read live; an open connection closes within a minute.
+
+The laptop needs its own read-only ntfy user. On stagmini, Jack runs these (the password prompt is interactive):
+
+```
+NT="sudo -u stag-ntfy /opt/stag-ntfy/ntfy"
+$NT user   --config /etc/stag-ntfy/server.yml add stagpad
+$NT access --config /etc/stag-ntfy/server.yml stagpad 'stag-*' read-only
+$NT token  --config /etc/stag-ntfy/server.yml add stagpad      # optional: a revocable token instead of the password
+```
+
+Then on stagpad, put that password (`NTFY_PASSWORD=`) or token (`NTFY_TOKEN=`) in `~/.config/stagos/ntfy.credentials`.
+The module creates that file empty with mode 600 and never overwrites it. The notifier refuses the file if any other
+user can read it or if it is a symlink, and never prints it. Then:
+
+```
+systemctl --user restart stagos-ntfy
+python3 ~/.local/lib/stagos/stag-ntfy-notify --check     # config ok? (prints the URL and topics, never the secret)
+```
+
+**KRunner (Meta+Space).** A Plasma 6 D-Bus runner (`org.kde.krunner1`), installed per user. KRunner starts it on demand
+(`~/.local/share/krunner/dbusplugins/stagos-krunner.desktop`, `~/.local/share/dbus-1/services/org.stagos.krunner.service`,
+`stagos-krunner.service`). Every action goes through `stag-ctl`, so the shell does the same thing:
+
+| Type | Does | Same as |
+|---|---|---|
+| `t buy milk` | adds a task to stag-tasks and shows its id in a notification ("Task #42 added") | `stag-ctl task add buy milk` |
+| `ask is maps up?` | opens the Stagbot chat with the question on the clipboard | `stag-ctl stagbot open is maps up?` |
+| `stag`, `stag ma` | lists and opens the stag apps from `~/.config/stagos/stag-services` | `stag-ctl app open maps` |
+
+`stag-ctl task add` does `POST <tasks url>/api/items` with `{"type":"task","title":...}` and `X-Stag-Request: 1`, and
+sends no token. stagpad is an owner device: stag-tasks trusts its tailnet identity (`node=` in `/etc/stag/owners.conf`).
+If KRunner does not offer the new runner, restart KRunner with `kquitapp6 krunner`; the next Meta+Space starts it again.
+
+**KDE Connect** (`kdeconnect`, `sshfs` for browsing the phone). The module installs the firewall drop-in
+`/etc/nftables.d/kdeconnect.nft`, which opens TCP and UDP 1714-1764. The StagOS firewall includes `/etc/nftables.d/*.nft`
+from inside its inbound chain, so a drop-in holds bare rules only. Until that firewall exists the file does nothing.
+Pairing with the iPhone:
+1. Install **KDE Connect** from the App Store and put the phone on the same wifi as stagpad. At the first start, allow
+   "Local Network" access.
+2. On stagpad, open System Settings > KDE Connect (or `kdeconnect-app`). The phone shows up there; click **Request pair**.
+   The request can also start on the phone: tap stagpad under "Discovered devices".
+3. Accept on the other device. Check that both sides show the same key fingerprint, which they display during pairing.
+4. On a network that blocks broadcast (guest wifi, hotspots) the devices cannot see each other. Add stagpad by its IP on
+   the phone ("Configure Devices by IP"), or add the phone in `kdeconnect-app` > "Add devices by IP". Over Tailscale,
+   use the other device's tailnet address.
+
+On iOS, KDE Connect can share the clipboard, send files both ways, ping, act as a remote input and presentation remote,
+and run commands. iOS does not let the app mirror the phone's notifications.
+
+### Lab: stagpad as a stag-lab node
+
+stag-lab runs no agent on its nodes. Its web terminal is the server (stagmini, user `staglab`) opening SSH over the
+tailnet with its own key per host. The host key is pinned and nothing is auto-accepted; the session is an interactive
+shell and nothing else. Module `lab` sets up the stagpad side:
+- sshd with key-only auth, no root login and no forwarding (`/etc/ssh/sshd_config.d/50-stagos-lab.conf`, checked with `sshd -t`);
+- one `stagos-lab` line in `~/.ssh/authorized_keys`: `STAGOS_LAB_SSH_PUBKEY`, limited to `from="STAGOS_LAB_SSH_FROM"` (stagmini) with no forwarding;
+- optionally `prometheus-node-exporter` on :9100 for the monitor tile (`STAGOS_LAB_METRICS=1`).
+
+The server side is Jack's (sudo on stagmini, stag-lab's `deploy/`):
+1. The `stag-pad` entry in `/etc/stag-lab/hosts.yaml`: the tailnet address, `user: jack`, no `shell: powershell`.
+2. Pin the new host key into `/var/lib/stag-lab/known_hosts`. Its install script does this, or use `ssh-keyscan`; drop any old pin first.
+3. If metrics are on, move `stag-pad` to the Prometheus `node` job.
+
+If stagpad runs Tailscale SSH (`tailscale set --ssh`), tailscaled answers port 22 on the tailnet address instead of sshd.
+The terminal then follows the tailnet SSH policy, not `authorized_keys`.
+
 ### Moving off labwc
 
 History: until the Plasma-only change StagOS also shipped a labwc session (waybar, fuzzel, swaync, swaylock...); a box
@@ -222,11 +307,13 @@ which waybar pulled in too) is marked explicitly installed first, so it stays. R
 ./test/plasma-apply.sh ./test/plasma-session.sh ./test/plasma-settings.sh   # Plasma apply, tty1 block, StagOS Settings
 ./test/labwc-cleanup.sh                      # cleanup-labwc against a fake old HOME (fake pacman, sudo)
 ./test/keyd-apps.sh                          # keyd per-app keys: the plasma module's user unit (fake systemctl), app.conf invariants
+./test/link.sh                               # modules link + lab: stag-ctl task add (fake curl), notifier vs a fake ntfy, KRunner runner (+ private D-Bus), nft -c
 ./test/desktop-container.sh all              # rootless podman Arch: shellcheck, dry run, real run, 2nd run must change 0 files, per-module reruns, config validation, btrfs branch
 ./test/desktop-container.sh plasma           # module plasma only: dry run, run 1, run 2 = 0 changes, Plasma config + session checks
 ./test/stag-widgets-container.sh             # the plasma phase, then the visual smoke (Xvfb + KWin + plasmashell, screenshots)
 ./test/labwc-migrate-container.sh            # old main (labwc era) installed, then this tree, cleanup-labwc, then the smoke
 ./test/keyd-apps-container.sh                # real KWin + the real keyd-application-mapper, a fake keyd: foot's rows follow focus; keyd check on every row
+./test/link-container.sh                     # modules link + lab for real: run 2 = 0 changes, nft -c, sshd -t, KRunner D-Bus activation
 ./test/fresh-install-container.sh            # clean box: provision 60/65 + every module, twice (0 changes), nothing labwc, then the smoke
 ./test/desktop-container.sh clean            # remove the image and package cache
 ```
@@ -244,3 +331,6 @@ which waybar pulled in too) is marked explicitly installed first, so it stays. R
 7. `systemctl --user status stagos-restic.timer`, one manual `systemctl --user start stagos-restic.service`; on btrfs: `snapper list` after a pacman run.
 8. gnome-keyring: a chromium password save survives a reboot (with the flag on); `onedrive` authorisation; Flatpak installs of Bambu Studio and LocalSend.
 9. tty1 fallback: `stag-session --status` says `next=plasma`; tty2 still gives a plain shell.
+10. Link: on stagmini `STAG_NOTIFY_TOPIC=stag-alerts ~/stag-system/bin/stag-notify "test" "hello stagpad" urgent` pops up a
+    critical StagOS notification (a normal one with DND on); Meta+Space `t test` gives "Task #N added" and the task is in
+    stag-tasks; `ask hi` opens the Stagbot chat; `stag maps` opens Stag Maps; the iPhone pairs in KDE Connect.
