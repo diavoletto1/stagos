@@ -27,6 +27,16 @@ priv() { if [ -n "$SUDO" ]; then "$SUDO" "$@"; else "$@"; fi; }
 now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 host_name() { stag_read "$STAG_PROC/sys/kernel/hostname" 2>/dev/null || echo stagpad; }
 
+# ---- process identity: pid + start time, so a stale or reused pid is never signalled ----
+proc_start() { # PID -> start time in clock ticks (field 22 of /proc/PID/stat), empty when gone
+  local st; st="$(cat "/proc/$1/stat" 2>/dev/null)" || return 1
+  st="${st##*) }"
+  # shellcheck disable=SC2086  # split the stat fields on purpose
+  set -- $st
+  printf '%s' "${20:-}"
+}
+boot_id() { stag_read "$STAG_PROC/sys/kernel/random/boot_id" 2>/dev/null; }
+
 # ---- field.json helpers (compact single line, so stag-lib reads it with builtins) ----
 fj_get() { # KEY -> value (string or number), empty when absent
   local j; j="$(stag_read "$FIELD_JSON")" || return 1
@@ -57,16 +67,24 @@ iface_connected() { # IFACE: rc 0 when NetworkManager reports it connected
   nmcli -t -f DEVICE,STATE device status 2>/dev/null | grep -qx "$1:connected"
 }
 
+# Every change "on" makes is recorded in field.json right after it happens, so "off" can undo a session that was
+# interrupted half way (Ctrl+C at a sudo prompt, a crash). field.json carries the boot id: after a reboot the
+# card is back in managed mode, the MAC is the hardware one and the inhibit is gone, so an old file is stale.
+S_IFACE="" S_LOG="" S_GPS=0 S_INH=0 S_INH_START="" S_MAC="" S_MACNOTE="" S_BR="" S_BI="" S_MON=0 S_KIS=0
 cmd_on() {
   stag_field_active && { say "field mode is already on (stag-field off first)"; cmd_status; return 0; }
+  clear_state   # a stale file from an earlier boot
   local iface; iface="$(stag_capture_iface)"
   [ -n "$iface" ] || fail 3 "no capture card configured ([recon] capture_iface in desktop.conf, or STAGOS_CAPTURE_IFACE)"
   local mode; mode="$(stag_iface_mode "$iface")"
   [ "$mode" = absent ] && fail 3 "$iface is not present (is the capture card plugged in?)"
+  S_IFACE="$iface"; S_BR="$(bright_pct)"
+  save_state || fail 1 "could not write $FIELD_JSON"
 
   # 1. capture card -> monitor mode
   if [ "$mode" != monitor ]; then
-    iface_to_mode "$iface" monitor || fail 1 "could not put $iface into monitor mode"
+    S_MON=1; save_state   # recorded first: a failure half way still gets the card back to managed on "off"
+    iface_to_mode "$iface" monitor || { say "could not put $iface into monitor mode"; cmd_off >/dev/null; fail 1 "could not put $iface into monitor mode"; }
     say "monitor mode: $iface"
   fi
 
@@ -79,96 +97,105 @@ cmd_on() {
     sleep 1
   done
   case "$gps" in 2|3) say "gps: ${gps}D fix" ;; na) say "gps: gpspipe not installed" ;; *) say "gps: no fix yet (continuing)" ;; esac
+  [[ "$gps" =~ ^[0-9]$ ]] && S_GPS="$gps"
 
   # 3. Kismet -> ~/field/<date>/ (user owns the logs; --log-prefix overrides kismet's log_prefix)
   local day log_dir; day="$(date +%Y-%m-%d)"; log_dir="$FIELD_ROOT/$day"
-  mkdir -p "$log_dir" || fail 1 "could not create $log_dir"
-  if ! stag_kismet_running; then
-    stag_have kismet || fail 3 "kismet is not installed"
+  mkdir -p "$log_dir" || { cmd_off >/dev/null; fail 1 "could not create $log_dir"; }
+  if stag_kismet_running; then
+    say "kismet: already running (not started by field mode): its logs stay where it writes them, not in $log_dir"
+  else
+    stag_have kismet || { cmd_off >/dev/null; fail 3 "kismet is not installed"; }
     ( cd "$log_dir" && setsid -f kismet --no-ncurses --log-prefix "$log_dir" -c "$iface" \
-        >"$log_dir/kismet.out" 2>&1 </dev/null ) || fail 1 "kismet did not start"
+        >"$log_dir/kismet.out" 2>&1 </dev/null ) || { cmd_off >/dev/null; fail 1 "kismet did not start"; }
+    S_KIS=1
     say "kismet: logging to $log_dir"
   fi
+  S_LOG="$log_dir"; save_state
 
   # 4. randomize the built-in wifi MAC, but never drop a live connection
-  local bi mac_orig="" mac_note=""
+  local bi
   if bi="$(builtin_iface)"; then
+    S_BI="$bi"
     if iface_connected "$bi"; then
-      mac_note="kept: $bi is connected"
-      say "mac: $mac_note"
+      S_MACNOTE="kept: $bi is connected"
+      say "mac: $S_MACNOTE"
     elif stag_have macchanger; then
-      mac_orig="$(stag_read "$STAG_SYS/class/net/$bi/address")"
+      S_MAC="$(stag_read "$STAG_SYS/class/net/$bi/address")"; save_state
       if priv ip link set "$bi" down && priv macchanger -r "$bi" >/dev/null && priv ip link set "$bi" up; then
         say "mac: $bi randomized"
       else
-        mac_orig=""; mac_note="randomize failed"; say "mac: randomize failed on $bi"
+        S_MACNOTE="randomize failed"; say "mac: randomize failed on $bi"
       fi
     else
-      mac_note="macchanger not installed"
+      S_MACNOTE="macchanger not installed"
     fi
   else
-    mac_note="no built-in card to randomize"
+    S_MACNOTE="no built-in card to randomize"
   fi
+  save_state
 
   # 5. power: a notch dimmer, TLP battery mode
-  local br_orig=""
-  br_orig="$(bright_pct)"
-  if [ -n "$br_orig" ] && stag_have brightnessctl; then
-    local target=$((br_orig - 15)); [ "$target" -lt 5 ] && target=5
+  if [ -n "$S_BR" ] && stag_have brightnessctl; then
+    local target=$((S_BR - 15)); [ "$target" -lt 5 ] && target=5
     brightnessctl -q set "${target}%" >/dev/null 2>&1 || true
   fi
   if stag_have tlp; then priv tlp bat >/dev/null 2>&1 || say "tlp: could not switch to battery mode"; fi
 
-  # 6. hold a sleep/idle inhibit for the whole session. Backgrounded (not setsid) so $! is the inhibit's own
-  # pid and stag-field off can release it; disown keeps it off the shell job table so it survives our exit.
-  local inhibit_pid=0
+  # 6. hold a sleep/idle inhibit for the whole session. setsid puts it in its own session, so closing the terminal
+  # this ran in (SIGHUP to the foreground group) does not release it; $! is still its pid (setsid only forks when
+  # it is already a group leader, which a background job of a script is not).
   if stag_have systemd-inhibit; then
     # shellcheck disable=SC2086  # INHIBIT_CMD is a test seam, word splitting is intended
-    systemd-inhibit --what=sleep:idle:handle-lid-switch --who=stag-field \
-      --why="StagOS field mode" --mode=block $INHIBIT_CMD >/dev/null 2>&1 &
-    inhibit_pid=$!
+    setsid systemd-inhibit --what=sleep:idle:handle-lid-switch --who=stag-field \
+      --why="StagOS field mode" --mode=block $INHIBIT_CMD >/dev/null 2>&1 </dev/null &
+    S_INH=$!
     disown 2>/dev/null || true
+    S_INH_START="$(proc_start "$S_INH")"
   fi
 
-  write_state true "$iface" "$log_dir" "$gps" "$inhibit_pid" "$mac_orig" "$mac_note" "$br_orig" "$bi"
+  save_state
   say "field mode on"
   cmd_status
 }
 
 cmd_off() {
-  stag_field_active || { say "field mode is not on"; cmd_status; return 0; }
-  local iface log_dir inhibit_pid mac_orig br_orig bi
-  iface="$(fj_get iface)"; log_dir="$(fj_get log_dir)"; inhibit_pid="$(fj_get inhibit_pid)"
-  mac_orig="$(fj_get mac_original)"; br_orig="$(fj_get brightness_original)"; bi="$(fj_get builtin)"
+  [ -e "$FIELD_JSON" ] || { say "field mode is not on"; cmd_status; return 0; }
+  if ! stag_field_active; then
+    # left over from an earlier boot: card, MAC and inhibit were reset by the reboot; only brightness may differ
+    load_state; restore_brightness; clear_state
+    say "field mode: cleared a stale session from an earlier boot"
+    cmd_status; return 0
+  fi
+  load_state
 
-  # 1. Kismet: stop cleanly so it flushes the sqlite log
-  if stag_kismet_running; then
+  # 1. Kismet: stop cleanly so it flushes the sqlite log (only the one field mode started)
+  if [ "$S_KIS" = 1 ] && stag_kismet_running; then
     pkill -x kismet 2>/dev/null || true
     local i; for i in 1 2 3 4 5 6 7 8 9 10 11 12; do stag_kismet_running || break; sleep 0.5; done
     if stag_kismet_running; then say "kismet: still running (did not stop)"; else say "kismet: stopped"; fi
   fi
 
-  # 2. capture card back to managed
-  if [ -n "$iface" ] && [ "$(stag_iface_mode "$iface")" = monitor ]; then
-    iface_to_mode "$iface" managed || say "could not return $iface to managed mode"
+  # 2. capture card back to managed (when field mode put it in monitor mode)
+  if [ "$S_MON" = 1 ] && [ -n "$S_IFACE" ] && [ "$(stag_iface_mode "$S_IFACE")" = monitor ]; then
+    iface_to_mode "$S_IFACE" managed || say "could not return $S_IFACE to managed mode"
   fi
 
-  # 3. release the inhibit
-  if [[ "$inhibit_pid" =~ ^[0-9]+$ ]] && [ "$inhibit_pid" -gt 0 ]; then
-    kill "$inhibit_pid" 2>/dev/null || true
+  # 3. release the inhibit: its whole process group, and only if the pid is still the process we started
+  if [[ "$S_INH" =~ ^[0-9]+$ ]] && [ "$S_INH" -gt 0 ] && [ -n "$S_INH_START" ] && [ "$(proc_start "$S_INH")" = "$S_INH_START" ]; then
+    kill -- "-$S_INH" 2>/dev/null || kill "$S_INH" 2>/dev/null || true
   fi
 
-  # 4. restore MAC (only if we changed it) and brightness, hand power back to TLP auto
-  if [ -n "$mac_orig" ] && [ -n "$bi" ] && stag_have macchanger; then
-    if priv ip link set "$bi" down && priv macchanger --mac "$mac_orig" "$bi" >/dev/null && priv ip link set "$bi" up; then
-      say "mac: $bi restored"
+  # 4. the built-in card back to its hardware MAC (only if we changed it; NetworkManager applies its own
+  # per-network MAC on the next connect anyway), brightness back, power handed back to TLP auto
+  if [ -n "$S_MAC" ] && [ -n "$S_BI" ] && stag_have macchanger; then
+    if priv ip link set "$S_BI" down && priv macchanger -p "$S_BI" >/dev/null && priv ip link set "$S_BI" up; then
+      say "mac: $S_BI back to its hardware address"
     else
-      say "mac: could not restore $bi"
+      say "mac: could not restore $S_BI (sudo ip link set $S_BI down; sudo macchanger -p $S_BI; sudo ip link set $S_BI up)"
     fi
   fi
-  if [[ "$br_orig" =~ ^[0-9]+$ ]] && stag_have brightnessctl; then
-    brightnessctl -q set "${br_orig}%" >/dev/null 2>&1 || true
-  fi
+  restore_brightness
   if stag_have tlp; then priv tlp start >/dev/null 2>&1 || true; fi
 
   clear_state
@@ -176,13 +203,18 @@ cmd_off() {
 
   # 5. sync in the background when online (the --user timer catches up otherwise)
   if is_online; then
-    ( "$0" sync ) </dev/null >/dev/null 2>&1 &
+    ( setsid "$0" sync ) </dev/null >/dev/null 2>&1 &
     disown 2>/dev/null || true
     say "sync: started in the background"
   else
     say "sync: offline, left for the field-sync timer"
   fi
   cmd_status
+}
+restore_brightness() {
+  if [[ "$S_BR" =~ ^[0-9]+$ ]] && stag_have brightnessctl; then
+    brightnessctl -q set "${S_BR}%" >/dev/null 2>&1 || true
+  fi
 }
 
 # ---- brightness: current percent from sysfs (same pick order as stag-ctl) ----
@@ -200,15 +232,25 @@ bright_pct() {
 }
 
 # ---- state file (compact JSON on one line) ----
-write_state() { # active iface log_dir gps inhibit_pid mac_orig mac_note br_orig builtin
-  mkdir -p "$STAG_STATE"
+save_state() { # writes the S_* session variables
+  mkdir -p "$STAG_STATE" || return 1
   local extra=""
-  [ -n "$6" ] && extra+=",\"mac_original\":\"$(stag_json_esc "$6")\""
-  [ -n "$7" ] && extra+=",\"mac_note\":\"$(stag_json_esc "$7")\""
-  [ -n "$8" ] && extra+=",\"brightness_original\":$8"
-  printf '{"active":%s,"iface":"%s","log_dir":"%s","started":%s,"gps_fix":%s,"inhibit_pid":%s,"builtin":"%s"%s}\n' \
-    "$1" "$(stag_json_esc "$2")" "$(stag_json_esc "$3")" "$(stag_now)" "${4:-0}" "${5:-0}" "$(stag_json_esc "$9")" "$extra" \
+  [ -n "$S_MAC" ] && extra+=",\"mac_original\":\"$(stag_json_esc "$S_MAC")\""
+  [ -n "$S_MACNOTE" ] && extra+=",\"mac_note\":\"$(stag_json_esc "$S_MACNOTE")\""
+  [ -n "$S_BR" ] && extra+=",\"brightness_original\":$S_BR"
+  [ -n "$S_INH_START" ] && extra+=",\"inhibit_start\":$S_INH_START"
+  printf '{"active":true,"boot_id":"%s","iface":"%s","log_dir":"%s","started":%s,"gps_fix":%s,"inhibit_pid":%s,"builtin":"%s","set_monitor":%s,"started_kismet":%s%s}\n' \
+    "$(stag_json_esc "$(boot_id)")" "$(stag_json_esc "$S_IFACE")" "$(stag_json_esc "$S_LOG")" "$(stag_now)" "${S_GPS:-0}" \
+    "${S_INH:-0}" "$(stag_json_esc "$S_BI")" "$S_MON" "$S_KIS" "$extra" \
     > "$FIELD_JSON.tmp.$$" && mv -f "$FIELD_JSON.tmp.$$" "$FIELD_JSON"
+}
+load_state() {
+  S_IFACE="$(fj_get iface)"; S_LOG="$(fj_get log_dir)"; S_INH="$(fj_get inhibit_pid)"; S_INH_START="$(fj_get inhibit_start)"
+  S_MAC="$(fj_get mac_original)"; S_BR="$(fj_get brightness_original)"; S_BI="$(fj_get builtin)"
+  S_MON="$(fj_get set_monitor)"; S_KIS="$(fj_get started_kismet)"
+  # a session file from before these keys existed: assume field mode did both
+  [ -n "$S_MON" ] || S_MON=1
+  [ -n "$S_KIS" ] || S_KIS=1
 }
 clear_state() { rm -f "$FIELD_JSON"; }
 
@@ -269,7 +311,7 @@ PY
 upload_one() { # FILE SHA ENDPOINT -> rc 0 on success, sets REPLY to the response body
   local f="$1" sha="$2" endpoint="$3" try resp clean
   for try in 1 2 3; do
-    resp="$(curl -sS --max-time 300 -F "file=@$f" -F "host=$(host_name)" "$endpoint" 2>/dev/null)"
+    resp="$(curl -sS --connect-timeout 15 --max-time 1800 -F "file=@$f" -F "host=$(host_name)" "$endpoint" 2>/dev/null)"
     clean="${resp//[[:space:]]/}"   # tolerate spaces in the server's JSON
     if [ -n "$resp" ] && [[ "$clean" == *'"ok":true'* ]]; then REPLY="$clean"; return 0; fi
     [ "$try" -lt 3 ] && sleep "$((try * 2))"
@@ -282,10 +324,15 @@ cmd_sync() {
   if ! is_online; then printf '{"ok":true,"online":false,"uploaded":0}\n'; return 0; fi
   local base; base="$(maps_base)" || { printf '{"ok":true,"online":true,"reachable":false,"uploaded":0}\n'; return 0; }
   local endpoint="$base/api/field/kismet"
-  local f sha up=0 dup=0 failed=0 dupflag devcount now mtime age
+  local f sha up=0 dup=0 failed=0 dupflag devcount now mtime age live=""
   now="$(stag_now)"
+  # the log dir of a running field session: Kismet is still writing there, and a partial log uploaded now would be
+  # counted again (different sha256) once it is finished
+  if stag_field_active && stag_kismet_running; then live="$(fj_get log_dir)"; fi
   while IFS= read -r f; do
     [ -s "$f" ] || continue
+    [ -n "$live" ] && [ "${f%/*}" = "$live" ] && continue
+    [ -e "$f-journal" ] && continue
     # skip a log kismet is still writing (changed in the last 15 s)
     mtime="$(stat -c %Y "$f" 2>/dev/null || echo 0)"; age=$((now - mtime))
     [ "$age" -lt 15 ] && continue

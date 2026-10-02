@@ -113,7 +113,7 @@ case "$name" in
   pkill)
     [ "${*: -1}" = kismet ] && put kismet no ;;
   setsid)
-    [ "$1" = -f ] && shift; "$@" ;;
+    [ "$1" = -f ] && shift; exec "$@" ;;
   kismet) put kismet yes ;;
   wl-copy) cat > "$FAKE_DIR/clipboard" ;;
   *) : ;;   # foot konsole gtk-launch chromium xdg-open loginctl systemctl rfkill: log only

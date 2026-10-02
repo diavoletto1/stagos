@@ -176,9 +176,12 @@ stag_kismet_running() { pgrep -x kismet >/dev/null 2>&1; }
 # ---- field mode (stag-field): session state in ~/.local/state/stagos ----
 # field.json is written compact (one line) by stag-field, so these builtins read it cheaply.
 stag_field_file() { printf '%s' "$STAG_STATE/field.json"; }
-stag_field_active() { # rc 0 when a field session is active
-  local j; j="$(stag_read "$(stag_field_file)")" || return 1
-  [[ "$j" == *'"active":true'* ]]
+stag_field_active() { # rc 0 when a field session of this boot is active (a file from an earlier boot is stale)
+  local j b; j="$(stag_read "$(stag_field_file)")" || return 1
+  [[ "$j" == *'"active":true'* ]] || return 1
+  [[ "$j" =~ \"boot_id\":\"([^\"]*)\" ]] || return 0
+  b="$(stag_read "$STAG_PROC/sys/kernel/random/boot_id" 2>/dev/null)"
+  [ "${BASH_REMATCH[1]}" = "$b" ]
 }
 stag_field_iface() { # the capture iface of the active session, empty when none
   local j; j="$(stag_read "$(stag_field_file)")" || return 1

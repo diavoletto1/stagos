@@ -110,7 +110,7 @@ J="$(stag-field off 2>/dev/null)"
 jcheck "off: status reports inactive" "$J" '.active == false and .kismet == false'
 check "off: kismet stopped" grep -q '^pkill -x kismet' "$FAKE_LOG"
 check "off: capture card back to managed" grep -q '^iw dev wlan1 set type managed' "$FAKE_LOG"
-check "off: MAC restored to the original" grep -q '^macchanger --mac de:ad:be:ef:00:01 wlan0' "$FAKE_LOG"
+check "off: MAC back to the hardware address" grep -q '^macchanger -p wlan0' "$FAKE_LOG"
 check "off: brightness restored" grep -q '^brightnessctl -q set 50%' "$FAKE_LOG"
 check "off: power handed back to TLP auto" grep -q '^tlp start' "$FAKE_LOG"
 check "off: the inhibit was released" bash -c "! kill -0 '$PID' 2>/dev/null"
@@ -123,6 +123,44 @@ fake_state nm_wlan0 connected
 stag-field on >/dev/null 2>&1
 check "on: connected built-in card is never randomized" bash -c "! grep -q 'macchanger -r' '$FAKE_LOG'"
 stag-field off >/dev/null 2>&1
+
+echo; echo "== stag-field: interrupted on, stale sessions, a reused inhibit pid =="
+new_field
+FJ="$HOME/.local/state/stagos/field.json"
+# on fails after monitor mode (kismet missing): the card goes back to managed, no session is left behind
+rm -f "$T/sb/bin/kismet"
+check "on: kismet missing -> 3" test "$(rc stag-field on)" = 3
+check "on failed half way: the card is back in managed mode" test "$(cat "$STAGOS_SYS/class/net/wlan1/type")" = 1
+check "on failed half way: no session file left" bash -c "! test -e '$FJ'"
+ln -sf "$ROOT/test/fixtures/bin/fake-desktop" "$T/sb/bin/kismet"
+# a session killed right after monitor mode (only the first steps recorded): off still undoes them
+iw dev wlan1 set type monitor
+printf '{"active":true,"boot_id":"","iface":"wlan1","log_dir":"","started":1,"gps_fix":0,"inhibit_pid":0,"builtin":"","set_monitor":1,"started_kismet":0}\n' > "$FJ"
+: > "$FAKE_LOG"
+stag-field off >/dev/null 2>&1
+check "off after an interrupted on: card back to managed" grep -q '^iw dev wlan1 set type managed' "$FAKE_LOG"
+check "off after an interrupted on: did not stop a kismet it never started" bash -c "! grep -q '^pkill' '$FAKE_LOG'"
+# a session file from an earlier boot is stale: not active, and off touches neither the card nor the MAC
+mkdir -p "$STAGOS_PROC/sys/kernel/random"; echo boot-1 > "$STAGOS_PROC/sys/kernel/random/boot_id"
+stag-field on >/dev/null 2>&1
+check "on: the session records the boot id" grep -q '"boot_id":"boot-1"' "$FJ"
+OLDPID="$(grep -oE '"inhibit_pid":[0-9]+' "$FJ" | cut -d: -f2)"
+echo boot-2 > "$STAGOS_PROC/sys/kernel/random/boot_id"
+jcheck "after a reboot: status is inactive" "$(stag-field status)" '.active == false'
+jcheck "after a reboot: the top bar has no FIELD readout" "$(stag-status --json)" '([.fields[] | select(.id=="mon") | .text] | all(. != "FIELD wlan1"))'
+: > "$FAKE_LOG"
+stag-field off >/dev/null 2>&1
+check "after a reboot: off clears the stale file" bash -c "! test -e '$FJ'"
+check "after a reboot: off leaves the card and MAC alone" bash -c "! grep -qE '^(iw|macchanger)' '$FAKE_LOG'"
+kill "$OLDPID" 2>/dev/null
+# the recorded inhibit pid now belongs to another process (pid reuse): off must not signal it
+echo boot-3 > "$STAGOS_PROC/sys/kernel/random/boot_id"
+sleep 30 & OTHER=$!
+printf '{"active":true,"boot_id":"boot-3","iface":"wlan1","log_dir":"","started":1,"gps_fix":0,"inhibit_pid":%s,"inhibit_start":1,"builtin":"","set_monitor":0,"started_kismet":0}\n' "$OTHER" > "$FJ"
+stag-field off >/dev/null 2>&1
+check "off: a reused inhibit pid (start time differs) is left alone" kill -0 "$OTHER"
+kill "$OTHER" 2>/dev/null; wait "$OTHER" 2>/dev/null
+rm -f "$STAGOS_PROC/sys/kernel/random/boot_id"
 
 # ---- sync against a real upload server (the contract) ----
 if [ -z "$REAL_CURL" ] || [ -z "$REAL_PYTHON" ]; then
@@ -176,6 +214,13 @@ printf 'KISMETLOG-DUP\n' > "$d/stag-dup.kismet"
 printf 'KISMETLOG-FAIL\n' > "$d/stag-fail.kismet"
 touch -d '1 hour ago' "$d"/*.kismet
 printf 'STILL-WRITING\n' > "$d/stag-live.kismet"   # fresh mtime: must be skipped
+s="$HOME/field/2026-10-03"; mkdir -p "$s"
+printf 'SESSION-LOG\n' > "$s/stag-session.kismet"; touch -d '1 hour ago' "$s/stag-session.kismet"
+printf 'JOURNALED\n' > "$d/stag-jrnl.kismet"; : > "$d/stag-jrnl.kismet-journal"; touch -d '1 hour ago' "$d/stag-jrnl.kismet"
+# a running field session logging into $s (kismet up): its log is not finished
+mkdir -p "$HOME/.local/state/stagos"
+printf '{"active":true,"iface":"wlan1","log_dir":"%s","started":1,"gps_fix":0,"inhibit_pid":0,"builtin":""}\n' "$s" > "$HOME/.local/state/stagos/field.json"
+fake_state kismet yes
 
 fake_state ts down
 jcheck "sync offline is a no-op" "$(stag-field sync 2>/dev/null)" '.online == false'
@@ -183,6 +228,8 @@ fake_state ts up
 J="$(stag-field sync 2>/dev/null)"
 jcheck "sync: two good uploads (A + dup), one failure, live log skipped" "$J" '.uploaded == 2 and .duplicates == 1 and .failed == 1 and .ok == false'
 check "sync: the live (fresh) log was never offered" bash -c "! grep -q 'stag-live.kismet' '$SRV_LOG'"
+check "sync: the running session's log dir was never offered" bash -c "! grep -q 'stag-session.kismet' '$SRV_LOG'"
+check "sync: a log with an open sqlite journal was never offered" bash -c "! grep -q 'stag-jrnl.kismet' '$SRV_LOG'"
 check "sync: the failing log was retried 3 times" bash -c "test \$(grep -c 'stag-fail.kismet' '$SRV_LOG') -eq 3"
 check "sync: never deletes local logs" bash -c "test -s '$d/stag-A.kismet' -a -s '$d/stag-fail.kismet'"
 check "sync: bookkeeping keyed by sha256 recorded the uploads" bash -c "test -s '$HOME/.local/state/stagos/field-uploads.json' && python3 -c 'import json;d=json.load(open(\"$HOME/.local/state/stagos/field-uploads.json\"));assert len(d)==2'"
@@ -191,6 +238,7 @@ check "sync: last-sync timestamp written" test -s "$HOME/.local/state/stagos/fie
 J="$(stag-field sync 2>/dev/null)"
 jcheck "sync again: already-uploaded logs are skipped (idempotent by sha)" "$J" '.uploaded == 0 and .failed == 1'
 check "sync again: only the still-failing log is re-offered" bash -c "test \$(grep -c 'stag-A.kismet' '$SRV_LOG') -eq 0"
+rm -f "$HOME/.local/state/stagos/field.json"; fake_state kismet no
 # the remote status reaches the Control Center through stag-ctl
 rm -f "$STAGOS_CACHE/field_remote"
 STAGOS_CACHE_SYNC=1 stag-ctl recon status >/dev/null 2>&1
