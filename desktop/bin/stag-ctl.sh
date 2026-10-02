@@ -248,7 +248,7 @@ recon_status() {
   fif="$(stag_field_iface)"
   last="$(stag_field_last_upload)"
   remote="$(stag_cached field_remote 60 stag_field_remote)"
-  [[ "$remote" == *'{'* ]] || remote=null
+  [[ "$remote" == *'"files"'* ]] || remote=null   # unreachable, or an error body (403 not_owner)
   printf '{"ts":{"up":%s,"installed":%s,"ip":"%s"},"gps":{"installed":%s,"mode":%s},"capture":{"iface":"%s","mode":"%s","monitor":"%s"},"kismet":{"running":%s},"field":{"active":%s,"iface":"%s","last_upload":"%s","remote":%s}}\n' \
     "$([[ "$ts" == up* ]] && echo true || echo false)" "$([ "$ts" = none ] && echo false || echo true)" \
     "$(stag_json_esc "$([[ "$ts" == up\ * ]] && echo "${ts#up }")")" \

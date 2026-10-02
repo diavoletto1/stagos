@@ -70,6 +70,7 @@ On stagpad: `cd /opt/stagos && git pull && ./stagos-desktop`, then log out and b
 | `keyring` | gnome-keyring + seahorse. With `STAGOS_KEYRING_EMPTY=1` creates a login keyring with an empty password so it opens under autologin; **off by default**, see the note |
 | `stag` | `chromium --app` launcher per service in `STAGOS_STAG_PATHS` at `<scheme>://<host>/<name>/` (from `config/local.conf`), icon tiles, listed in the STAG menu and KRunner. URLs are written only under `~/.local` and `~/.config` |
 | `hidpi` | Inter + JetBrains Mono, fontconfig light hinting with grayscale AA, `desktop.env` with the panel scale `STAGOS_OUTPUT_SCALE` (default 1.5, applied by the plasma module at the first login) |
+| `field` | `stag-field on\|off\|status\|sync` (see Field mode under [Plasma](#plasma)): capture card to monitor mode, gpsd, Kismet logging to `~/field/<date>/`, MAC/power profile and a sleep inhibit; `stagos-field-sync.timer` uploads finished logs to stag-maps over Tailscale |
 | `update` | `stag-update`, the safe update wrapper (see [Updates](#backups-and-updates)) and pacman-contrib (pacdiff) |
 | `plasma` | the KDE Plasma 6 Wayland session (see [Plasma](#plasma)): StagOS HUD look, top bar + floating dock, touchpad, night light, Spectacle keys, `stag-session` on tty1, keyd's per-app keys (`stagos-keyd-apps.service`). `STAGOS_DESKTOP_PLASMA=0` skips it |
 | `link` | StagSystem on the desktop (see [Link](#link-stagsystem-on-the-desktop)): stag-ntfy messages as Plasma notifications (`stagos-ntfy.service`), the KRunner runner (`t`, `ask`, `stag`), KDE Connect + its firewall drop-in. `STAGOS_LINK_KDECONNECT=0` skips KDE Connect |
@@ -424,6 +425,8 @@ which waybar pulled in too) is marked explicitly installed first, so it stays. R
 ./test/safety.sh                             # stag-backup, stag-update (news, pacdiff, archive pin), stag-battery, stag-charge (python unit tests: test/stag-charge-test.py), modules power/snapshots/update; fakes
 ./test/labwc-cleanup.sh                      # cleanup-labwc against a fake old HOME (fake pacman, sudo)
 ./test/keyd-apps.sh                          # keyd per-app keys: the plasma module's user unit (fake systemctl), app.conf invariants
+./test/field.sh                              # stag-field on/off/status/sync with fakes (interrupted on, stale session, inhibit), sync vs a fake upload server
+STAG_MAPS_DIR=~/repos/stag-maps ./test/field-maps-contract.sh   # stag-field sync vs the real stag-maps app (temp DB, fake whois): upload, duplicate, status, errors, non-owner 403
 ./test/link.sh                               # modules link + lab: stag-ctl task add (fake curl), notifier vs a fake ntfy, KRunner runner (+ private D-Bus), nft -c
 ./test/desktop-container.sh all              # rootless podman Arch: shellcheck, dry run, real run, 2nd run must change 0 files, per-module reruns, config validation, btrfs branch
 ./test/desktop-container.sh harden           # modules network, firewall, boot: run 1, run 2 = 0 changes, nft ruleset checked + loaded in the container's netns, NM config, Plymouth theme

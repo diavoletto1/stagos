@@ -42,6 +42,9 @@ echo; echo "== stag-ctl / stag-status / plasmoid unit tests =="
 echo; echo "== stag-field (field mode) + sync contract =="
 ./test/field.sh
 
+echo; echo "== field upload contract: stag-field sync vs the real stag-maps app (skips without a stag-maps checkout) =="
+./test/field-maps-contract.sh
+
 echo; echo "== Plasma: stag-plasma-apply, tty1 session, StagOS Settings (app tests need qml: container) =="
 ./test/plasma-apply.sh
 ./test/plasma-session.sh

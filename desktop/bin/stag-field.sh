@@ -309,13 +309,17 @@ PY
 }
 
 upload_one() { # FILE SHA ENDPOINT -> rc 0 on success, sets REPLY to the response body
-  local f="$1" sha="$2" endpoint="$3" try resp clean
+  # retries network errors and 5xx; a 4xx (not an owner, not a Kismet log, too big) will not change on retry
+  local f="$1" sha="$2" endpoint="$3" try out code resp="" clean
   for try in 1 2 3; do
-    resp="$(curl -sS --connect-timeout 15 --max-time 1800 -F "file=@$f" -F "host=$(host_name)" "$endpoint" 2>/dev/null)"
+    out="$(curl -sS --connect-timeout 15 --max-time 1800 -w '\n%{http_code}' -F "file=@$f" -F "host=$(host_name)" "$endpoint" 2>/dev/null)"
+    code="${out##*$'\n'}"; resp="${out%$'\n'*}"; [ "$resp" = "$out" ] && resp=""
     clean="${resp//[[:space:]]/}"   # tolerate spaces in the server's JSON
-    if [ -n "$resp" ] && [[ "$clean" == *'"ok":true'* ]]; then REPLY="$clean"; return 0; fi
+    if [ "$code" = 200 ] && [[ "$clean" == *'"ok":true'* ]]; then REPLY="$clean"; return 0; fi
+    [[ "$code" =~ ^4[0-9][0-9]$ ]] && break
     [ "$try" -lt 3 ] && sleep "$((try * 2))"
   done
+  [[ "$resp" =~ \"error\":[[:space:]]*\"([^\"]*)\" ]] && say "sync: ${f##*/}: HTTP $code: ${BASH_REMATCH[1]}"
   REPLY="$resp"; return 1
 }
 
