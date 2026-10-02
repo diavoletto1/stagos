@@ -20,7 +20,7 @@ set -uo pipefail
 . stag-lib || { echo '{"error":"stag-lib missing"}'; exit 3; }
 
 QDBUS="${STAGOS_QDBUS:-qdbus6}"
-usage() { sed -n '4,16p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '4,/^[^#]/{/^#/p}' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 fail() { printf '{"error":"%s"}\n' "$(stag_json_esc "$2")"; exit "$1"; }
 need() { stag_have "$1" || fail 3 "$1 is not installed"; }
 detach() { setsid -f "$@" </dev/null >/dev/null 2>&1; }
@@ -490,6 +490,6 @@ case "$what" in
   about) cmd_about ;;
   session) cmd_session "$@" ;;
   control) cmd_control ;;
-  -h|--help|help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h|--help|help) sed -n '2,/^[^#]/{/^#/p}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   *) usage ;;
 esac
