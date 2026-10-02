@@ -46,3 +46,6 @@ echo; echo "== keyd per-app keys under Plasma (module side and config invariants
 
 echo; echo "== labwc-era cleanup (stagos-desktop cleanup-labwc, fakes) =="
 ./test/labwc-cleanup.sh
+
+echo; echo "== link + lab modules: stag-ctl task add, ntfy notifier, KRunner runner (fakes; real run: test/link-container.sh) =="
+./test/link.sh
