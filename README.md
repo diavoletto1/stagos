@@ -242,8 +242,12 @@ autologin then starts the session.
 - **Field mode** (`stag-field on|off|status|sync`, module `field`): `on` needs the capture card, puts it into monitor
   mode (same path as `stag-mon`), starts gpsd and Kismet (logs under `~/field/<date>/`, user owned), randomizes the
   built-in wifi MAC only when it is not connected, drops to a battery power profile and holds a `systemd-inhibit` so
-  the laptop stays awake. `off` reverses it and syncs. `sync` uploads finished `.kismet` logs to stag-maps over
-  Tailscale (idempotent by sha256, resume-safe in `~/.local/state/stagos/field-uploads.json`, never deletes logs);
+  the laptop stays awake (it survives closing the terminal). `off` reverses it (the card back to managed, the
+  built-in card back to its hardware MAC, the inhibit released) and syncs. Each step is recorded as it happens, so
+  after a Ctrl+C or a crash half way `stag-field off` still undoes what was done; after a reboot the old session is
+  simply cleared (monitor mode, MAC and inhibit do not survive a reboot). `sync` uploads finished `.kismet` logs to stag-maps over
+  Tailscale (idempotent by sha256, resume-safe in `~/.local/state/stagos/field-uploads.json`, never deletes logs,
+  never sends the log Kismet is still writing);
   a `stagos-field-sync.timer` user unit catches up once back online. All privileged steps go through `sudo` like
   `stag-mon`; no new NOPASSWD rule.
 - **StagOS Settings** (`stag-settings`, in the STAG menu, KRunner and System Settings > StagOS): top bar switches,
